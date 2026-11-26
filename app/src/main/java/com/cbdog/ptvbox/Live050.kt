@@ -15,8 +15,10 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.*
 import androidx.compose.ui.semantics.*
+import androidx.compose.ui.platform.LocalContext
 import androidx.tv.material3.Text
 import coil3.compose.AsyncImage
+import coil3.request.ImageRequest
 import kotlinx.coroutines.*
 import org.json.*
 
@@ -65,18 +67,29 @@ object LiveParser050 {
   if(categoryTrail052.isNotEmpty())PcChip("← 返回上级分类",false,{category=categoryTrail052.last();categoryTrail052=categoryTrail052.dropLast(1);page=1;more=true})
   if(classes.isNotEmpty())LazyRow(horizontalArrangement=Arrangement.spacedBy(8.dp)){items(classes,key={it.first}){(id,name)->val active=LiveOrder054.activeClass(category,categoryTrail052,id);PcChip(name,active,{category=id;categoryTrail052=emptyList();page=1;more=true},Modifier.semantics{if(active)contentDescription="当前平台：$name"})}}
   }}
-   if(busy&&rows.isEmpty()){
-    item(span={GridItemSpan(maxLineSpan)}){Text("正在读取频道分类与直播内容…",color=PcAccent,fontSize=13.sp)}
-    items(6,key={"live-loading-$it"}){Column(Modifier.fillMaxWidth().height(150.dp).background(LocalCinema.current.raised,RoundedCornerShape(10.dp)).padding(14.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){Box(Modifier.fillMaxWidth().height(75.dp).background(LocalCinema.current.surface,RoundedCornerShape(8.dp)));Text("频道信息加载中…",color=LocalCinema.current.muted,fontSize=12.sp)}}
+   if(busy){
+    item(span={GridItemSpan(maxLineSpan)}){
+     val activeName=sources.firstOrNull{it.key==key}?.name.orEmpty()
+     Row(Modifier.fillMaxWidth().background(Color(0x336d5ce8),RoundedCornerShape(8.dp)).border(1.dp,PcAccent.copy(alpha=.45f),RoundedCornerShape(8.dp)).padding(horizontal=14.dp,vertical=10.dp),verticalAlignment=androidx.compose.ui.Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(10.dp)){
+      Text("⏳",fontSize=15.sp)
+      Text(if(activeName.isNotBlank())"正在加载「$activeName」频道列表，体育/直播源解析较慢，请稍候…"else"正在加载频道列表，请稍候…",color=PcAccent,fontSize=13.sp)
+     }
+    }
+    if(rows.isEmpty())items(6,key={"live-loading-$it"}){Column(Modifier.fillMaxWidth().height(150.dp).background(LocalCinema.current.raised,RoundedCornerShape(10.dp)).padding(14.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){Box(Modifier.fillMaxWidth().height(75.dp).background(LocalCinema.current.surface,RoundedCornerShape(8.dp)));Text("频道信息加载中…",color=LocalCinema.current.muted,fontSize=12.sp)}}
    }
-   if(rows.isEmpty()&&!busy)item(span={GridItemSpan(maxLineSpan)}){PcEmpty("暂无频道",if(classes.isNotEmpty())"请选择上方分类；未开赛与无信号的比赛需等开播后再刷新。"else"可在设置导入直播订阅，或选择已有TVBox体育/直播站点。")}
-   items(rows,key={it.id}){v->val source=sources.firstOrNull{it.key==key};InputButton({if(source!=null&&LiveParser050.folder(source.site,v)){categoryTrail052=categoryTrail052+category;category=v.id;page=1;more=true}else if(source!=null){val site=source.site?:Site("live-${source.key}",source.name,"https://localhost",1,group="直播与体育",headers=source.headers,searchable=false);m.openLive050(LiveEntry050(site,v))}},Modifier.fillMaxWidth().then(workFocus(m,Work(v.id,v.title,provider="live"),"livegrid")).onFocusChanged{if(it.hasFocus)focused=v.id},shape=androidx.tv.material3.ButtonDefaults.shape(RoundedCornerShape(10.dp))){Column(verticalArrangement=Arrangement.spacedBy(8.dp)){if(v.poster.isNotBlank())AsyncImage(v.poster,v.title,Modifier.fillMaxWidth().height(100.dp),contentScale=ContentScale.Fit);Text(v.title,color=LocalCinema.current.text,fontSize=14.sp);if(v.folder)Text("分类 · 点击进入频道列表",color=PcAccent,fontSize=11.sp);if(LiveParser050.awaitingSignal(v))Text("未开播 / 暂无信号 · 开播后刷新",color=PcAccent,fontSize=11.sp);if(v.overview.isNotBlank())Text(v.overview,color=LocalCinema.current.muted,fontSize=11.sp,maxLines=2)}}}
+   if(rows.isEmpty()&&!busy)item(span={GridItemSpan(maxLineSpan)}){PcEmpty("暂无频道",if(classes.isNotEmpty())"当前分类暂无可播场次，可切换上方其他分类；未开赛与无信号的比赛需等开播后再刷新。"else"可在设置导入直播订阅，或选择已有TVBox体育/直播站点。")}
+   items(rows,key={it.id}){v->val source=sources.firstOrNull{it.key==key};InputButton({if(source!=null&&LiveParser050.folder(source.site,v)){categoryTrail052=categoryTrail052+category;category=v.id;page=1;more=true}else if(source!=null){val site=source.site?:Site("live-${source.key}",source.name,"https://localhost",1,group="直播与体育",headers=source.headers,searchable=false);m.openLive050(LiveEntry050(site,v))}},Modifier.fillMaxWidth().then(workFocus(m,Work(v.id,v.title,provider="live"),"livegrid")).onFocusChanged{if(it.hasFocus)focused=v.id},shape=androidx.tv.material3.ButtonDefaults.shape(RoundedCornerShape(10.dp))){Column(verticalArrangement=Arrangement.spacedBy(8.dp)){if(v.poster.isNotBlank())LiveLogoImage101(v.poster,v.title,Modifier.fillMaxWidth().height(100.dp));Text(v.title,color=LocalCinema.current.text,fontSize=14.sp);if(v.folder)Text("分类 · 点击进入频道列表",color=PcAccent,fontSize=11.sp);if(LiveParser050.awaitingSignal(v))Text("未开播 / 暂无信号 · 开播后刷新",color=PcAccent,fontSize=11.sp);if(v.overview.isNotBlank())Text(v.overview,color=LocalCinema.current.muted,fontSize=11.sp,maxLines=2)}}}
    if(sources.firstOrNull{it.key==key}?.site!=null&&rows.isNotEmpty())item(span={GridItemSpan(maxLineSpan)}){MoreHint051(busy,more){page=(m.liveBrowseCache050[key+"|"+category]?.page?:page)+1;refresh++}}
   }
 }
+@Composable private fun LiveLogoImage101(url:String,label:String,modifier:Modifier){
+ val context=LocalContext.current
+ val request=remember(url){ImageRequest.Builder(context).data(url).memoryCacheKey("live:$url").diskCacheKey("live:$url").build()}
+ AsyncImage(request,label,modifier,contentScale=ContentScale.Fit)
+}
 @Composable fun LiveDetail050(m:PtvModel){val entry=m.liveEntry?:return;val scope=rememberCoroutineScope();var value by remember(entry.work.key){mutableStateOf(entry)};var busy by remember{mutableStateOf(false)};var error by remember{mutableStateOf("")}
- LaunchedEffect(entry.work.key){busy=true;try{value=entry.copy(vod=withContext(Dispatchers.IO){m.sites.detail(entry.site,if(entry.site.type==3)entry.vod.copy(roads=emptyList())else entry.vod)});m.liveEntry=value}catch(e:CancellationException){throw e}catch(e:Exception){error="线路读取失败，可刷新重试"}finally{busy=false}}
- Column(Modifier.fillMaxSize(),verticalArrangement=Arrangement.spacedBy(14.dp)){PcSection(value.vod.title,if(busy)"正在读取直播线路…"else error);if(value.vod.poster.isNotBlank())AsyncImage(value.vod.poster,value.vod.title,Modifier.fillMaxWidth().height(140.dp),contentScale=ContentScale.Fit)
+ LaunchedEffect(entry.work.key){busy=true;try{value=withContext(Dispatchers.IO){m.sites.liveDetail054(entry)};m.liveEntry=value}catch(e:CancellationException){throw e}catch(e:Exception){error="线路读取失败，可刷新重试"}finally{busy=false}}
+ Column(Modifier.fillMaxSize(),verticalArrangement=Arrangement.spacedBy(14.dp)){PcSection(value.vod.title,if(busy)"正在解析直播线路，请稍候…"else error);if(busy)Row(Modifier.fillMaxWidth().background(Color(0x336d5ce8),RoundedCornerShape(8.dp)).border(1.dp,PcAccent.copy(alpha=.45f),RoundedCornerShape(8.dp)).padding(horizontal=14.dp,vertical=10.dp),verticalAlignment=androidx.compose.ui.Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(10.dp)){Text("⏳",fontSize=15.sp);Text("正在向直播/体育源拉取可用线路，请稍候…",color=PcAccent,fontSize=13.sp)};if(value.vod.poster.isNotBlank())LiveLogoImage101(value.vod.poster,value.vod.title,Modifier.fillMaxWidth().height(140.dp))
   Action(if(LiveParser050.awaitingSignal(value.vod))"尚未开播 · 刷新频道后再试"else"▶ 播放直播",{if(LiveParser050.awaitingSignal(value.vod))m.message("本场未开播或暂无信号，请开播后刷新频道")else m.playLive050(value)});PcSection("全部直播线路","${value.vod.roads.sumOf{it.episodes.size}}条 · 直播不会搜索点播资源站")
   LazyVerticalGrid(GridCells.Adaptive(260.dp),Modifier.weight(1f),horizontalArrangement=Arrangement.spacedBy(10.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){items(value.vod.roads.flatMap{r->r.episodes.map{r to it}},key={it.first.name+"|"+it.second.name+"|"+it.second.url}){(r,e)->Action("${r.name} · ${e.name}",{m.playLive050(value,r.name+"|"+e.name)},Modifier.fillMaxWidth(),maxLines=Int.MAX_VALUE)}}
  }

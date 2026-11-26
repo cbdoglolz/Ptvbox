@@ -16,7 +16,7 @@ class Version059Test {
 
     @Test fun episodeFocusOutlineScalesWithWholeCard(){
         val episode=source("src/main/java/com/cbdog/ptvbox/EpisodeCard054.kt")
-        assertTrue(episode.contains("animateFloatAsState(if(focused)1.035f else 1f"))
+        assertTrue(episode.contains("animateFloatAsState(if(active)1.035f else 1f"))
         assertTrue(episode.contains("drawWithContent"))
         assertTrue(episode.contains("drawRoundRect(brush=SelectionBrush051"))
     }

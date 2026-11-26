@@ -43,7 +43,7 @@ class SettingsPriority060Test {
     @Test fun artworkPrecedesEpisodeDetailsAndUsesShortCache(){
         val presentation=source("src/main/java/com/cbdog/ptvbox/Presentation050.kt")
         assertTrue(presentation.contains("else\"w1280\""))
-        assertTrue(presentation.contains("12*60*60*1000L"))
+        assertTrue(presentation.contains("CacheBudget101.trimPresentation"))
         assertTrue(presentation.indexOf("artwork(tm)")<presentation.indexOf("for(p in listOf(\"douban\"))"))
         val detail=source("src/main/java/com/cbdog/ptvbox/CinemaDetail040.kt")
         assertTrue(detail.contains("blur(7.dp)"))
@@ -52,6 +52,6 @@ class SettingsPriority060Test {
         assertTrue(episodes.contains("if(cached==null)delay(800)"))
         val anime=source("src/main/java/com/cbdog/ptvbox/AnimeSeason056.kt")
         assertTrue(anime.contains("中文名补充中"))
-        assertTrue(anime.contains("12*3600000L"))
+        assertTrue(anime.contains("CacheBudget101.touch(file)"))
     }
 }

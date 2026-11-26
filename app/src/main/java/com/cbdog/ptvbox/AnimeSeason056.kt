@@ -75,32 +75,114 @@ internal object InfoChinese056{
 }
 
 @Composable internal fun AnimePage056(m:PtvModel){
- val now=remember{LocalDate.now()};var year by rememberSaveable{mutableIntStateOf(now.year)};var quarter by rememberSaveable{mutableIntStateOf((now.monthValue-1)/3)};var weekday by rememberSaveable{mutableIntStateOf(0)};var refresh by remember{mutableIntStateOf(0)};var rows by remember{mutableStateOf<List<AnimeEntry056>>(emptyList())};var busy by remember{mutableStateOf(true)};var status by remember{mutableStateOf("")};var mode by rememberSaveable{mutableStateOf("quarter")};var query by rememberSaveable{mutableStateOf("")};var searchRows by remember{mutableStateOf<List<AnimeEntry056>>(emptyList())};var searchRevision by remember{mutableIntStateOf(0)};val context=LocalContext.current;val c=LocalCinema.current
- LaunchedEffect(year,quarter,refresh){rows=emptyList();busy=true;status="正在读取AniList季度目录，再补充Bangumi中文名与海报…";val file=java.io.File(context.cacheDir,"anime-season056-$year-$quarter.json");try{val cached=withContext(Dispatchers.IO){runCatching{JSONArray(file.readText()).objects().map{AnimeEntry056(Work.from(it.getJSONObject("work")),it.optInt("weekday"),it.optString("time"),it.optDouble("popularity",0.0))}}.getOrDefault(emptyList())};rows=cached;if(cached.isNotEmpty()&&refresh==0&&System.currentTimeMillis()-file.lastModified()<12*3600000L){status="已缓存季度目录 · 北京时间"}else{val fresh=withContext(Dispatchers.IO){AnimeSeason056.load(year,quarter){partial->withContext(Dispatchers.Main){rows=partial}}};rows=fresh;withContext(Dispatchers.IO){file.writeText(JSONArray(fresh.map{it.json()}).toString());fresh.forEach{m.db.cache(it.work)}};status="AniList主目录 · Bangumi中文名/海报补充 · 北京时间"}}catch(e:CancellationException){throw e}catch(_:Exception){status=if(rows.isEmpty())"目录暂不可用，可刷新重试"else"目录暂不可用，保留本地缓存"}finally{busy=false}}
- LaunchedEffect(searchRevision){if(mode!="search"||query.isBlank())return@LaunchedEffect;busy=true;status="正在搜索动画…";try{searchRows=withContext(Dispatchers.IO){AnimeSeason056.search(query.trim())};searchRows.forEach{m.db.cache(it.work)};status="动画搜索结果 ${searchRows.size}部"}catch(e:CancellationException){throw e}catch(_:Exception){status="动画搜索暂不可用，保留上次结果"}finally{busy=false}}
- val quarterRows=rows.filter{weekday==0||it.weekday==weekday}.sortedWith(compareBy<AnimeEntry056>{it.time.ifBlank{"99:99"}}.thenBy{it.work.title})
- val shown=when(mode){"hot"->rows.sortedByDescending{it.popularity};else->quarterRows}
+ val now=remember{LocalDate.now()}
+ var tab by rememberSaveable{mutableStateOf("hot")}
+ var year by rememberSaveable{mutableIntStateOf(now.year)}
+ var quarter by rememberSaveable{mutableIntStateOf((now.monthValue-1)/3)}
+ var weekday by rememberSaveable{mutableIntStateOf(0)}
+ var refresh by remember{mutableIntStateOf(0)}
+ var rows by remember{mutableStateOf<List<AnimeEntry056>>(emptyList())}
+ var busy by remember{mutableStateOf(true)}
+ var status by remember{mutableStateOf("")}
+ var doubanRows by remember{mutableStateOf<List<Work>>(emptyList())}
+ var doubanPage by remember{mutableIntStateOf(0)}
+ var doubanMore by remember{mutableStateOf(true)}
+ var doubanBusy by remember{mutableStateOf(false)}
+ val scope=rememberCoroutineScope()
+ val context=LocalContext.current
+ val c=LocalCinema.current
+ val gridState=rememberLazyGridState()
  val animeSources=remember(m.availableSites){m.availableSites.filter{it.group=="动画"}}
- Row(Modifier.fillMaxSize(),horizontalArrangement=Arrangement.spacedBy(12.dp)){
-  Column(Modifier.widthIn(min=158.dp,max=210.dp).fillMaxHeight().background(c.surface,RoundedCornerShape(10.dp)).padding(10.dp).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(7.dp)){
-   Row(Modifier.fillMaxWidth(),verticalAlignment=androidx.compose.ui.Alignment.CenterVertically){Text("动画季度",color=c.text,fontSize=18.sp,modifier=Modifier.weight(1f));PcChip("重置",false,{year=now.year;quarter=(now.monthValue-1)/3;weekday=0;mode="quarter";query="";searchRows=emptyList();refresh++})}
-   Text(status,color=c.muted,fontSize=10.sp,maxLines=2)
-   FlowRow(horizontalArrangement=Arrangement.spacedBy(4.dp),verticalArrangement=Arrangement.spacedBy(4.dp)){listOf("quarter" to "季度新番","hot" to "当季热播").forEach{(id,label)->PcChip(label,mode==id,{mode=id;weekday=0})}}
-   Text("$year",color=c.text,fontSize=18.sp,modifier=Modifier.fillMaxWidth(),textAlign=androidx.compose.ui.text.style.TextAlign.Center)
-   Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceEvenly,verticalAlignment=androidx.compose.ui.Alignment.CenterVertically){PcChip("-5",false,{year=(year-5).coerceAtLeast(1970);weekday=0});YearStepCircle056("−"){year--;weekday=0};YearStepCircle056("+"){year++;weekday=0};PcChip("+5",false,{year=(year+5).coerceAtMost(now.year+2);weekday=0})}
-   if(mode=="quarter"){FlowRow(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(4.dp),verticalArrangement=Arrangement.spacedBy(4.dp)){AnimeSeason056.seasons.forEachIndexed{index,name->PcChip(name,quarter==index,{quarter=index;weekday=0})}};Text("每周更新",color=PcAccent,fontSize=11.sp);(0..7).forEach{day->val count=if(day==0)rows.size else rows.count{it.weekday==day};PcChip((if(day==0)"全部" else "周${"一二三四五六日"[day-1]}")+"  $count",weekday==day,{weekday=day},Modifier.fillMaxWidth())}}
-   Box(Modifier.fillMaxWidth().height(1.dp).background(c.border))
-   Text("动画专用源",color=c.text,fontSize=13.sp)
-   Text("${animeSources.size}个站点已配置并参与作品搜索",color=if(animeSources.isEmpty())PcAccent else PcGreen,fontSize=10.sp,maxLines=2)
-   Action("管理动画源",{m.utility("sites")},Modifier.fillMaxWidth())
-   Action("动画推荐",{m.changeFeed(k="tv",c="动画");m.screen="library"},Modifier.fillMaxWidth())
-   Text("季度目录只表示排期，不代表已存在可播放片源。",color=c.muted,fontSize=9.sp,maxLines=3)
+ fun loadDoubanTab(reset:Boolean){
+  if(doubanBusy||(!reset&&!doubanMore))return
+  val nextPage=if(reset)1 else doubanPage+1
+  doubanBusy=true
+  scope.launch{
+   try{
+    val kind=if(tab=="movie")"movie"else"tv"
+    val cat=when(tab){"top"->"高分";"movie"->"动画";else->"动画"}
+    val fetched=withContext(Dispatchers.IO){
+     if(tab=="top")m.metadata.feed("douban","tv","筛选:动画",nextPage,m.includeUpcoming).sortedByDescending{it.rating.toDoubleOrNull()?:0.0}
+     else m.metadata.feed("douban",kind,cat,nextPage,m.includeUpcoming)
+    }
+    doubanMore=fetched.any{r->reset||doubanRows.none{it.key==r.key}}
+    doubanRows=(if(reset)fetched else doubanRows+fetched).distinctBy{it.key}
+    doubanPage=nextPage
+   }catch(e:CancellationException){throw e}catch(_:Exception){
+    if(reset&&doubanRows.isEmpty())status="豆瓣动画目录暂不可用，可切换近期热门番剧或时间表"
+   }finally{doubanBusy=false}
   }
-  LazyVerticalGrid(GridCells.Adaptive(138.dp),Modifier.weight(1f).fillMaxHeight(),horizontalArrangement=Arrangement.spacedBy(12.dp),verticalArrangement=Arrangement.spacedBy(14.dp),contentPadding=PaddingValues(4.dp,4.dp,8.dp,18.dp)){
-   item(span={GridItemSpan(maxLineSpan)}){Column(verticalArrangement=Arrangement.spacedBy(4.dp)){PcSection(when(mode){"hot"->"动画 · ${year}年${AnimeSeason056.seasons[quarter]}当季热播";else->"动画 · ${year}年${AnimeSeason056.seasons[quarter]}新番"},if(mode=="quarter"){if(weekday==0)"全部 ${shown.size}部" else "周${"一二三四五六日"[weekday-1]} · ${shown.size}部 · 北京时间"}else"${shown.size}部 · 按当前季热度排序");Text("季度目录来自AniList；Bangumi补充中文名与中文海报，匹配不到时会明确标记。",color=c.muted,fontSize=10.sp)}}
-   if(busy&&rows.isEmpty())item(span={GridItemSpan(maxLineSpan)}){Text("正在加载新番海报与排期…",color=PcAccent)}
-   items(shown,key={it.work.key}){e->Column{CinemaPoster(m,e.work,"anime");if(e.weekday>0)Text("周${"一二三四五六日"[e.weekday-1]} ${e.time}",color=PcAccent,fontSize=11.sp);if(!InfoChinese056.hasHan(e.work.title))Text(if(busy)"中文名补充中…" else "中文名未匹配",color=if(busy)PcAccent else c.muted,fontSize=10.sp,maxLines=1)}}
-   if(!busy&&shown.isEmpty())item(span={GridItemSpan(maxLineSpan)}){PcEmpty("当前星期暂无排期","可切回“全部”，排期未返回的作品仍会显示。")}
+ }
+ LaunchedEffect(tab){
+  if(tab in listOf("tv","movie","top")){doubanRows=emptyList();doubanPage=0;doubanMore=true;loadDoubanTab(true)}
+ }
+ LaunchedEffect(year,quarter,refresh){
+  rows=emptyList();busy=true;status="正在读取AniList季度目录，再补充Bangumi中文名与海报…"
+  val file=java.io.File(context.cacheDir,"anime-season056-$year-$quarter.json")
+  try{
+   val cached=withContext(Dispatchers.IO){runCatching{JSONArray(file.readText()).objects().map{AnimeEntry056(Work.from(it.getJSONObject("work")),it.optInt("weekday"),it.optString("time"),it.optDouble("popularity",0.0))}}.getOrDefault(emptyList())}
+   rows=cached
+   if(cached.isNotEmpty()&&refresh==0){CacheBudget101.touch(file);status="已缓存季度目录（空间上限LRU）· 北京时间"}
+   else{
+    val fresh=withContext(Dispatchers.IO){AnimeSeason056.load(year,quarter){partial->withContext(Dispatchers.Main){rows=partial}}}
+    rows=fresh
+    withContext(Dispatchers.IO){file.writeText(JSONArray(fresh.map{it.json()}).toString());CacheBudget101.trimFiles(context.cacheDir.listFiles()?.filter{it.name.startsWith("anime-season056-")}.orEmpty());fresh.forEach{m.db.cache(it.work)}}
+    status="AniList主目录 · Bangumi中文名/海报补充 · 北京时间"
+   }
+  }catch(e:CancellationException){throw e}catch(_:Exception){status=if(rows.isEmpty())"目录暂不可用，可刷新重试"else"目录暂不可用，保留本地缓存"}finally{busy=false}
+ }
+ val scheduleRows=rows.filter{weekday==0||it.weekday==weekday}.sortedWith(compareBy<AnimeEntry056>{it.time.ifBlank{"99:99"}}.thenBy{it.work.title})
+ val hotRows=rows.filter{m.includeUpcoming||!it.work.isUpcoming()}.sortedByDescending{it.popularity}
+ Column(Modifier.fillMaxSize(),verticalArrangement=Arrangement.spacedBy(10.dp)){
+  FlowRow(horizontalArrangement=Arrangement.spacedBy(8.dp),verticalArrangement=Arrangement.spacedBy(6.dp)){
+   listOf("hot" to "近期热门番剧","schedule" to "时间表","tv" to "国漫 / 动画剧集","movie" to "动画电影","top" to "高分动画").forEach{(id,label)->
+    PcChip(label,tab==id,{tab=id;if(id=="hot"){year=now.year;quarter=(now.monthValue-1)/3;weekday=0}})
+   }
+   PcChip("搜索动画",false,{m.enterSearch055()})
+   PcChip("管理动画源 (${animeSources.size})",false,{m.utility("sites")})
+   if(tab in listOf("hot","schedule"))PcChip("刷新",false,{refresh++})
+  }
+  if(tab=="schedule"){
+   Column(Modifier.fillMaxWidth().background(c.surface,RoundedCornerShape(10.dp)).padding(10.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){
+    Row(Modifier.fillMaxWidth(),verticalAlignment=androidx.compose.ui.Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)){
+     Text("年份",color=c.muted,fontSize=12.sp)
+     PcChip("-5",false,{year=(year-5).coerceAtLeast(1970);weekday=0})
+     YearStepCircle056("−"){year--;weekday=0}
+     Text("$year",color=c.text,fontSize=18.sp)
+     YearStepCircle056("+"){year++;weekday=0}
+     PcChip("+5",false,{year=(year+5).coerceAtMost(now.year+2);weekday=0})
+     Spacer(Modifier.width(8.dp))
+     AnimeSeason056.seasons.forEachIndexed{index,name->PcChip(name,quarter==index,{quarter=index;weekday=0})}
+     Spacer(Modifier.weight(1f))
+     PcChip("回到本季",false,{year=now.year;quarter=(now.monthValue-1)/3;weekday=0;refresh++})
+    }
+    FlowRow(horizontalArrangement=Arrangement.spacedBy(6.dp),verticalArrangement=Arrangement.spacedBy(6.dp)){
+     (0..7).forEach{day->val count=if(day==0)rows.size else rows.count{it.weekday==day};PcChip((if(day==0)"全部"else"周${"一二三四五六日"[day-1]}")+" $count",weekday==day,{weekday=day})}
+    }
+   }
+  }
+  if(tab in listOf("tv","movie","top")){
+   LazyVerticalGrid(GridCells.Adaptive(138.dp),state=gridState,modifier=Modifier.weight(1f).fillMaxWidth().pagedDown051(gridState,doubanRows.map{it.key},{m.focusWork.takeIf{m.focusRow=="anime"}},doubanBusy,doubanMore){loadDoubanTab(false)},horizontalArrangement=Arrangement.spacedBy(14.dp),verticalArrangement=Arrangement.spacedBy(16.dp),contentPadding=PaddingValues(4.dp,4.dp,8.dp,18.dp)){
+    item(span={GridItemSpan(maxLineSpan)}){PcSection(when(tab){"movie"->"动画电影";"top"->"高分动画";else->"国漫 / 动画剧集"},if(doubanBusy)"正在加载更多动画… · 已加载 ${doubanRows.size}部"else"已加载 ${doubanRows.size}部 · 支持国漫年番与多站自动匹配")}
+    items(doubanRows,key={it.key}){w->CinemaPoster(m,w,"anime")}
+    item(span={GridItemSpan(maxLineSpan)}){if(doubanRows.isEmpty()&&!doubanBusy)PcEmpty("暂未加载到动画条目","请检查网络或切换顶部其他分类");MoreHint051(doubanBusy,doubanMore){loadDoubanTab(false)}}
+   }
+  }else{
+   val shown=if(tab=="hot")hotRows else scheduleRows
+   var visibleLimit by rememberSaveable(tab,year,quarter,weekday){mutableIntStateOf(20)}
+   val paged=shown.take(visibleLimit)
+   val hasMore=paged.size<shown.size
+   val animeGrid=rememberLazyGridState()
+   LazyVerticalGrid(GridCells.Adaptive(138.dp),state=animeGrid,modifier=Modifier.weight(1f).fillMaxWidth().pagedDown051(animeGrid,paged.map{it.work.key},{m.focusWork.takeIf{m.focusRow=="anime"}},busy,hasMore){visibleLimit+=20},horizontalArrangement=Arrangement.spacedBy(14.dp),verticalArrangement=Arrangement.spacedBy(16.dp),contentPadding=PaddingValues(4.dp,4.dp,8.dp,18.dp)){
+    item(span={GridItemSpan(maxLineSpan)}){Column(verticalArrangement=Arrangement.spacedBy(4.dp)){
+     PcSection(if(tab=="hot")"近期热门番剧 · ${year}年${AnimeSeason056.seasons[quarter]}"else"番剧时间表 · ${year}年${AnimeSeason056.seasons[quarter]}",if(tab=="schedule"){if(weekday==0)"已显示 ${paged.size}/${shown.size}部 · 北京时间"else"周${"一二三四五六日"[weekday-1]} · 已显示 ${paged.size}/${shown.size}部 · 北京时间"}else"已显示 ${paged.size}/${shown.size}部 · 每次加载20部，向下滑加载更多")
+     Text(status,color=c.muted,fontSize=10.sp)
+    }}
+    if(busy&&rows.isEmpty())item(span={GridItemSpan(maxLineSpan)}){Text("正在加载新番海报与中文资料…",color=PcAccent)}
+    items(paged,key={it.work.key}){e->val (shownWork,_)=presented050(m,e.work);Column{CinemaPoster(m,e.work,"anime");if(tab=="schedule"&&e.weekday>0)Text("周${"一二三四五六日"[e.weekday-1]} ${e.time}",color=PcAccent,fontSize=11.sp);if(busy&&!InfoChinese056.hasHan(shownWork.title))Text("中文名补充中…",color=PcAccent,fontSize=10.sp,maxLines=1)}}
+    if(hasMore)item(span={GridItemSpan(maxLineSpan)}){MoreHint051(busy,true){visibleLimit+=20}}
+    if(!busy&&shown.isEmpty())item(span={GridItemSpan(maxLineSpan)}){PcEmpty("当前星期暂无排期","可切回“全部”或切换其他年份与季度。")}
+   }
   }
  }
 }

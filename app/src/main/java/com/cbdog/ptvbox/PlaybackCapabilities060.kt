@@ -20,6 +20,11 @@ internal data class PlaybackCapability060(
     val warning:String=""
 ) {
     val summary:String get()=listOf(resolution,dynamicRange,audio,display).filter{it.isNotBlank()}.joinToString(" / ")
+    val compactSummary:String get()=listOf(
+        resolution.takeUnless{it=="未报告"||it=="分辨率未报告"},
+        dynamicRange.replace("/未报告","").takeUnless{it.isBlank()},
+        audio.replace("语言未标注 · ","").takeUnless{it=="音轨未报告"}
+    ).filterNotNull().distinct().joinToString(" · ")
 }
 
 internal object PlaybackCapabilities060 {
@@ -44,9 +49,8 @@ internal object PlaybackCapabilities060 {
         val audio=audioFormat?.let{f->TrackLabels056.label(f.language,f.label,f.codecs,f.sampleMimeType,f.channelCount,1)}?:"音轨未报告"
         val device=display(application)
         val warning=when{
-            range.contains("Dolby Vision")&&!device.contains("Dolby Vision")->"当前显示未声明Dolby Vision支持；由系统/硬件决定映射结果"
-            range.contains("HDR")&&!device.contains("HDR")&&!device.contains("HLG")->"当前显示未声明HDR支持；将按播放器/系统能力映射到SDR"
-            audio.contains("声道")->"声道布局来自容器声明；未标注Atmos的普通5.1不是Atmos"
+            range.contains("Dolby Vision")&&!device.contains("Dolby Vision")->"设备未声明Dolby Vision"
+            range.contains("HDR")&&!device.contains("HDR")&&!device.contains("HLG")->"设备将按SDR映射"
             else->""
         }
         return PlaybackCapability060(resolution,range,audio,device,warning)

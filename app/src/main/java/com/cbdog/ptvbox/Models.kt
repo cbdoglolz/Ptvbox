@@ -49,7 +49,30 @@ object Identity {
         Regex("(?i)\\b(ii|iii|iv|v|vi|vii|viii|ix|x|xi|xii)$").find(out)?.let{m->romanNumbers[m.value.lowercase()]?.let{out=out.replaceRange(m.range,it.toString())}}
         return out
     }
-    fun searchTitle(value:String)=value.replace(Regex("第[零〇一二三四五六七八九十百两0-9]+[季期部集话話]|(?i)season\\s*[0-9一二三四五六七八九十]+|(?i)\\bS\\d{1,2}\\b"),"").trim()
+    fun nianfan(value:String):Int? {
+        Regex("年番\\s*(\\d{1,2})").find(value)?.let{return it.groupValues[1].toInt()}
+        Regex("年番\\s*([零〇一二三四五六七八九十百两]+)").find(value)?.let{return chineseNumber(it.groupValues[1])}
+        return if(value.contains("年番"))0 else null
+    }
+    fun isNianfan(work:Work)=nianfan(work.title)!=null||work.aliases.any{nianfan(it)!=null}
+    fun romanSeason(value:String):Int? {
+        val nfkc=Normalizer.normalize(value,Normalizer.Form.NFKC)
+        val m=Regex("(?i)(?:(?<=[\\u4e00-\\u9fff\\u3040-\\u30ff])|\\s+)(xii|xi|ix|viii|vii|vi|iv|iii|ii|v|x)(?=\\s|[~～:：\\-]|$)").find(nfkc)?:return null
+        return romanNumbers[m.groupValues[1].lowercase()]
+    }
+    fun stripRomanAndSubtitle(value:String):String {
+        val nfkc=Normalizer.normalize(value,Normalizer.Form.NFKC)
+        return nfkc
+            .replace(Regex("(?i)(?:(?<=[\\u4e00-\\u9fff\\u3040-\\u30ff])|\\s+)(xii|xi|ix|viii|vii|vi|iv|iii|ii|v|x)(?=\\s|[~～:：\\-]|$)"),"")
+            .substringBefore('～').substringBefore('~')
+            .trim()
+    }
+    fun searchTitle(value:String)=stripRomanAndSubtitle(value)
+        .replace(Regex("(?i)\\b\\d{1,2}(?:st|nd|rd|th)\\s*season\\b|シーズン\\s*\\d{1,2}|第?\\s*\\d{1,2}\\s*クール|(?i)\\b(?:part|cour)\\s*\\d{1,2}\\b|第[零〇一二三四五六七八九十百两0-9]+[季期部集话話]|(?i)season\\s*[0-9一二三四五六七八九十]+|(?i)\\bS\\d{1,2}\\b|年番\\s*[零〇一二三四五六七八九十百两0-9]*"),"")
+        .replace(Regex("(?:重制版|特别篇|番外篇)$"),"")
+        .trim()
+    fun seriesCore(value:String)=searchTitle(value).substringBefore('：').substringBefore(':').trim()
+    fun searchQueries(work:Work):List<String> = (listOf(work.title,searchTitle(work.title),seriesCore(work.title),work.original)+work.aliases+work.aliases.map(::searchTitle)).map{it.trim()}.filter{it.length>=2}.distinct()
     fun sameEpisode(a:String,b:String):Boolean = normalize(a)==normalize(b)||(episode(a)?.let{it==episode(b)}?:false)
     fun normalize(value:String)=normalizeNumberWords(Normalizer.normalize(value,Normalizer.Form.NFKC).lowercase()).replace(Regex("[\\p{P}\\p{Z}\\s]"),"").let{s->
         Regex("第([零〇一二三四五六七八九十百两]+)([季期部集话話])").replace(s){m->"第${chineseNumber(m.groupValues[1])?:m.groupValues[1]}${m.groupValues[2]}"}
@@ -61,13 +84,43 @@ object Identity {
         Regex("(?i)(?:episode|ep|e)\\s*0*(\\d{1,4})(?!\\d)").find(value)?.let{return it.groupValues[1].toInt()}
         return value.trim().takeIf{it.matches(Regex("\\d{1,4}"))}?.toInt()
     }
-    fun season(value:String):Int? {Regex("(?i)(?:season|\\bS)\\s*(\\d{1,2})").find(value)?.let{return it.groupValues[1].toInt()};Regex("第\\s*(\\d{1,2})\\s*[季期部]").find(value)?.let{return it.groupValues[1].toInt()};val cn=Regex("第([一二三四五六七八九十])[季期部]").find(value)?.groupValues?.get(1);return cn?.let{"一二三四五六七八九十".indexOf(it)+1}}
-    fun matches(work:Work,vod:Vod):Boolean {
-        if(vod.title.contains(Regex("解说|預告|预告|花絮|幕后|抢先看")))return false
-        if(work.year.length==4&&vod.year.length==4&&work.year!=vod.year)return false
-        if(work.kind=="tv"){val actual=season(vod.title);if(actual!=null&&actual!=work.season)return false;if(actual==null&&work.season>1)return false}
-        return (listOf(work.title,work.original)+work.aliases).filter{it.isNotBlank()}.any{base(it)==base(vod.title)}
+    fun trailingSeason(value:String):Int? = Regex("(?:\\s+|[\\u4e00-\\u9fff])([2-9])$").find(value.trim())?.groupValues?.get(1)?.toIntOrNull()
+    fun stripTrailingSeason(value:String):String = value.trim().replace(Regex("(?:\\s+|(?<=[\\u4e00-\\u9fff]))[2-9]$"),"").trim()
+    fun season(value:String):Int? {
+        Regex("(?i)(?:season|\\bS)\\s*(\\d{1,2})").find(value)?.let{return it.groupValues[1].toInt()}
+        Regex("(?i)\\b(\\d{1,2})(?:st|nd|rd|th)\\s*season\\b").find(value)?.let{return it.groupValues[1].toInt()}
+        Regex("シーズン\\s*(\\d{1,2})").find(value)?.let{return it.groupValues[1].toInt()}
+        Regex("第?\\s*(\\d{1,2})\\s*クール").find(value)?.let{return it.groupValues[1].toInt()}
+        Regex("第\\s*(\\d{1,2})\\s*[季期部]").find(value)?.let{return it.groupValues[1].toInt()}
+        val cn=Regex("第([一二三四五六七八九十])[季期部]").find(value)?.groupValues?.get(1)
+        if(cn!=null)return "一二三四五六七八九十".indexOf(cn)+1
+        return romanSeason(value)
     }
+    fun matchScore(work:Work,vod:Vod):Int {
+        if(vod.title.contains(Regex("解说|預告|预告|花絮|幕后|抢先看")))return 0
+        val nfWork=nianfan(work.title)?:work.aliases.firstNotNullOfOrNull(::nianfan)
+        val nfVod=nianfan(vod.title)
+        val names=(listOf(work.title,work.original)+work.aliases).filter{it.isNotBlank()}
+        val exactBase=names.any{base(it)==base(vod.title)}
+        val coreMatch=exactBase||(nfWork!=null&&names.any{normalize(seriesCore(it)).let{c->c.length>=2&&c==normalize(seriesCore(vod.title))}})
+        if(!coreMatch)return 0
+        if(nfWork!=null&&work.kind=="tv"){
+            val vodSeason=season(vod.title)
+            if(nfWork>0&&nfVod!=null&&nfVod>0&&nfVod!=nfWork)return 0
+            if(nfWork>0&&vodSeason!=null&&vodSeason!=nfWork)return 0
+            return when{
+                nfWork>0&&(nfVod==nfWork||vodSeason==nfWork)->100
+                nfVod!=null->85
+                vodSeason==null&&exactBase->75
+                vodSeason==null->65
+                else->60
+            }
+        }
+        if(work.year.length==4&&vod.year.length==4&&work.year!=vod.year)return 0
+        if(work.kind=="tv"){val actual=season(vod.title);if(actual!=null&&actual!=work.season)return 0;if(actual==null&&work.season>1)return 0}
+        return if(exactBase)100 else 0
+    }
+    fun matches(work:Work,vod:Vod):Boolean = matchScore(work,vod)>0
     fun pick(road:Road,episodeName:String,kind:String):Episode? {
         val number=episode(episodeName)
         if(kind=="movie")return road.episodes.firstOrNull{!it.name.contains(Regex("预告|花絮"))}

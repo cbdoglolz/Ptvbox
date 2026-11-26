@@ -31,24 +31,30 @@ private val LocalCompactPlayer=staticCompositionLocalOf{false}
         val audio=enabledAudioText(m)
         val subtitle=enabledSubtitleText(m)
         val danmaku=if(m.config.flag("danmaku_enabled",true))"弹幕 ON ${m.addons.danmaku.size}" else "弹幕 OFF"
-        Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){Text(m.currentCandidate?.label.orEmpty(),color=Color.LightGray,fontSize=12.sp,maxLines=1,modifier=Modifier.weight(1f));Text("$audio / $subtitle / $danmaku · ${clock(m.position)} / ${clock(m.duration)}",color=Color.White,fontSize=12.sp,maxLines=1)}
-        val fraction=if(m.duration>0)(m.position.toFloat()/m.duration).coerceIn(0f,1f)else 0f
-        Canvas(Modifier.fillMaxWidth().height(24.dp).semantics{contentDescription="播放进度";progressBarRangeInfo=ProgressBarRangeInfo(fraction,0f..1f);setProgress{if(m.duration>0)m.seek051((m.duration*it).toLong());true}}.focusable().onKeyEvent{if(it.type==KeyEventType.KeyDown&&it.key in listOf(Key.DirectionLeft,Key.DirectionRight)){m.seek051((m.player.currentPosition+if(it.key==Key.DirectionLeft)-5000 else 5000).coerceAtLeast(0));true}else false}.pointerInput(m.duration){awaitEachGesture{val down=awaitFirstDown();down.consume();if(m.duration>0)m.seek051((down.position.x/size.width*m.duration).toLong().coerceIn(0,m.duration));do{val e=awaitPointerEvent();val change=e.changes.first();change.consume();if(m.duration>0)m.seek051((change.position.x/size.width*m.duration).toLong().coerceIn(0,m.duration))}while(e.changes.any{it.pressed})}}){
+        var scrubPreview by remember(m.current?.key){mutableStateOf<Long?>(null)}
+        var keyScrubRev by remember(m.current?.key){mutableIntStateOf(0)}
+        LaunchedEffect(keyScrubRev){val t=scrubPreview;if(t!=null){kotlinx.coroutines.delay(SeekPolicy057.DEBOUNCE_COMMIT_MS);if(scrubPreview==t){scrubPreview=null;m.seek051(t)}}}
+        val shownPos=scrubPreview?:m.position
+        Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){Text(m.currentCandidate?.label.orEmpty(),color=Color.LightGray,fontSize=12.sp,maxLines=1,modifier=Modifier.weight(1f));Text("${clock(shownPos)} / ${clock(m.duration)}",color=if(scrubPreview!=null)PcAccent else Color.White,fontSize=12.sp,maxLines=1)}
+        val fraction=if(m.duration>0)(shownPos.toFloat()/m.duration).coerceIn(0f,1f)else 0f
+        Canvas(Modifier.fillMaxWidth().height(24.dp).semantics{contentDescription="播放进度";progressBarRangeInfo=ProgressBarRangeInfo(fraction,0f..1f);setProgress{if(m.duration>0)m.seek051((m.duration*it).toLong());true}}.focusable().onKeyEvent{if(it.type==KeyEventType.KeyDown&&it.key in listOf(Key.DirectionLeft,Key.DirectionRight)){val base=scrubPreview?:m.position;val next=(base+if(it.key==Key.DirectionLeft)-SeekPolicy057.INITIAL_STEP_MS else SeekPolicy057.INITIAL_STEP_MS).coerceIn(0,m.duration.coerceAtLeast(0));scrubPreview=next;keyScrubRev++;true}else false}.pointerInput(m.duration){awaitEachGesture{val down=awaitFirstDown();down.consume();var target=if(m.duration>0)(down.position.x/size.width*m.duration).toLong().coerceIn(0,m.duration)else null;scrubPreview=target;do{val e=awaitPointerEvent();val change=e.changes.first();change.consume();if(m.duration>0){target=(change.position.x/size.width*m.duration).toLong().coerceIn(0,m.duration);scrubPreview=target}}while(e.changes.any{it.pressed});scrubPreview=null;if(target!=null)m.seek051(target)}}){
             drawLine(Color.Gray.copy(alpha=.6f),Offset(0f,size.height/2),Offset(size.width,size.height/2),3.dp.toPx());drawLine(Color(0xffb7a0ff),Offset(0f,size.height/2),Offset(size.width*fraction,size.height/2),3.dp.toPx());drawCircle(Color(0xffc7b6ff),5.dp.toPx(),Offset(size.width*fraction,size.height/2))
         }
+        val btnBg=Color(0x553c3d54)
+        val btnHeight=if(LocalCompactPlayer.current)36.dp else 42.dp
         Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.Bottom,horizontalArrangement=Arrangement.spacedBy(8.dp)){
-        FlowRow(Modifier.weight(1f),horizontalArrangement=Arrangement.spacedBy(5.dp),verticalArrangement=Arrangement.spacedBy(4.dp)){
+        FlowRow(Modifier.weight(1f),horizontalArrangement=Arrangement.spacedBy(6.dp),verticalArrangement=Arrangement.spacedBy(5.dp)){
             PlayerIcon("previous","上一集"){m.stepEpisode(-1)}
             PlayerIcon(if(m.playing)"pause"else"play",if(m.playing)"暂停"else"播放"){if(m.playing)m.player.pause()else m.player.play()}
             PlayerIcon("next","下一集"){m.stepEpisode(1)}
             PlayerIcon("stop","停止",m::stop)
             PlayerIcon("list",if(m.current?.provider=="live")"直播线路"else"选集"){menu("episodes")}
-            InputButton({menu("sources")},Modifier.widthIn(max=150.dp).height(38.dp).then(playerRestore("播放线路")),shape=ButtonDefaults.shape(shape=androidx.compose.foundation.shape.RoundedCornerShape(7.dp)),contentPadding=PaddingValues(9.dp,3.dp)){Text(m.currentCandidate?.site?.name?:"播放源",fontSize=12.sp,maxLines=1)}
-            InputButton({menu("speed")},Modifier.size(54.dp,38.dp).then(playerRestore("倍速")),contentPadding=PaddingValues(3.dp)){Text("${m.player.playbackParameters.speed}×",fontSize=12.sp)}
-            InputButton({menu("scale")},Modifier.size(58.dp,38.dp).then(playerRestore("画面比例")),contentPadding=PaddingValues(3.dp)){Text(listOf("FIT","FILL","ZOOM")[m.resizeChoice],fontSize=12.sp)}
+            InputButton({menu("sources")},Modifier.height(btnHeight).widthIn(min=56.dp,max=180.dp).then(playerRestore("播放线路")),shape=ButtonDefaults.shape(shape=androidx.compose.foundation.shape.RoundedCornerShape(7.dp)),colors=ptvButtonColors(btnBg,Color.White),contentPadding=PaddingValues(12.dp,4.dp)){Text(m.currentCandidate?.site?.name?:"播放源",fontSize=12.sp,maxLines=1,softWrap=false)}
+            InputButton({menu("speed")},Modifier.height(btnHeight).widthIn(min=48.dp).then(playerRestore("倍速")),shape=ButtonDefaults.shape(shape=androidx.compose.foundation.shape.RoundedCornerShape(7.dp)),colors=ptvButtonColors(btnBg,Color.White),contentPadding=PaddingValues(11.dp,4.dp)){Text("${m.player.playbackParameters.speed}×",fontSize=12.sp,maxLines=1,softWrap=false)}
+            InputButton({menu("scale")},Modifier.height(btnHeight).widthIn(min=48.dp).then(playerRestore("画面比例")),shape=ButtonDefaults.shape(shape=androidx.compose.foundation.shape.RoundedCornerShape(7.dp)),colors=ptvButtonColors(btnBg,Color.White),contentPadding=PaddingValues(11.dp,4.dp)){Text(listOf("FIT","FILL","ZOOM")[m.resizeChoice],fontSize=12.sp,maxLines=1,softWrap=false)}
             PlayerIcon("cc","字幕"){menu("subtitles")}
             PlayerIcon("audio","音轨"){menu("audio")}
-            DanmakuToggle(m){menu("danmaku")}
+            DanmakuToggle(m,btnHeight){menu("danmaku")}
         }
         Row(horizontalArrangement=Arrangement.spacedBy(5.dp)){
             PlayerIcon(if(m.muted051)"mute"else"volume",if(m.muted051)"取消静音"else"静音",m::toggleMute051)
@@ -64,19 +70,22 @@ private fun enabledAudioText(m:PtvModel):String {
     val index=(0 until group.length).first{group.isTrackSelected(it)};val f=group.getTrackFormat(index)
     return TrackLabels056.label(f.language,f.label,f.codecs,f.sampleMimeType,f.channelCount,index+1)
 }
-private fun enabledSubtitleText(m:PtvModel):String {
+internal fun enabledSubtitleText(m:PtvModel):String {
     if(androidx.media3.common.C.TRACK_TYPE_TEXT in m.player.trackSelectionParameters.disabledTrackTypes)return "字幕 OFF"
     if(m.addons.cues.isNotEmpty())return "在线字幕 ${m.addons.cues.size}"
     val selected=m.player.currentTracks.groups.filter{it.type==androidx.media3.common.C.TRACK_TYPE_TEXT}.firstOrNull{g->(0 until g.length).any{g.isTrackSelected(it)}}
     return if(selected==null)"字幕未报告" else "内嵌字幕"
 }
-@Composable private fun DanmakuToggle(m:PtvModel,action:()->Unit){
+@Composable private fun DanmakuToggle(m:PtvModel,height:androidx.compose.ui.unit.Dp,action:()->Unit){
     val enabled=remember(m.preferencesRevision){m.config.flag("danmaku_enabled",true)}
-    InputButton(action,Modifier.size(if(LocalCompactPlayer.current)50.dp else 58.dp,38.dp).then(playerRestore("弹幕")).semantics{contentDescription="弹幕开关与数量"},shape=ButtonDefaults.shape(shape=androidx.compose.foundation.shape.RoundedCornerShape(20.dp)),contentPadding=PaddingValues(4.dp),colors=ptvButtonColors(Color(0x553c3d54),Color.White)){
-        Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(2.dp)){
-            Box(Modifier.border(1.dp,Color.White,androidx.compose.foundation.shape.CircleShape).padding(3.dp)){Text("弹",color=Color.White,fontSize=10.sp)}
-            Text(if(enabled)"ON" else "OFF",style=androidx.compose.ui.text.TextStyle(brush=if(enabled)Brush.horizontalGradient(listOf(Color(0xff3add91),Color(0xff7df0b6)))else Brush.horizontalGradient(listOf(Color(0xffff5c67),Color(0xffff9299))),fontSize=9.sp,fontWeight=androidx.compose.ui.text.font.FontWeight.Bold))
-            if(enabled&&m.addons.danmaku.isNotEmpty())Text("${m.addons.danmaku.size}",color=Color(0xff9ce9c4),fontSize=9.sp)
+    val count=m.addons.danmaku.size
+    val pillBg=if(enabled)Color(0x332ee08c)else Color(0x33ff5c67)
+    val pillColor=if(enabled)Color(0xff5cf0a8)else Color(0xffff7a84)
+    InputButton(action,Modifier.height(height).widthIn(min=72.dp).then(playerRestore("弹幕")).semantics{contentDescription="弹幕开关与数量"},shape=ButtonDefaults.shape(shape=androidx.compose.foundation.shape.RoundedCornerShape(7.dp)),contentPadding=PaddingValues(10.dp,4.dp),colors=ptvButtonColors(Color(0x553c3d54),Color.White)){
+        Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(5.dp)){
+            Box(Modifier.border(1.2.dp,Color.White.copy(alpha=.88f),androidx.compose.foundation.shape.RoundedCornerShape(4.dp)).padding(horizontal=4.dp,vertical=1.dp)){Text("弹",color=Color.White,fontSize=10.sp,fontWeight=androidx.compose.ui.text.font.FontWeight.SemiBold)}
+            Text(if(enabled)"ON" else "OFF",color=pillColor,fontSize=10.sp,fontWeight=androidx.compose.ui.text.font.FontWeight.Bold,modifier=Modifier.background(pillBg,androidx.compose.foundation.shape.RoundedCornerShape(4.dp)).padding(horizontal=5.dp,vertical=1.dp))
+            if(enabled)Text("$count",color=Color(0xffc9f7df),fontSize=11.sp,maxLines=1,softWrap=false)
         }
     }
 }

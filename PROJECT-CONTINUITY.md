@@ -1,9 +1,9 @@
 # Ptvbox 项目进度与交接规范
 
-Revision: `PTVBOX-2026-11-26.2`  
-Last updated: `2026-11-26 18:26 Asia/Shanghai`  
-Last updated by: `Codex`  
-Current implementation checkpoint: `1.0.0 / versionCode 24 / GitHub draft Release verified`
+Revision: `PTVBOX-2026-11-26.8`  
+Last updated: `2026-11-26 21:02 Asia/Shanghai`  
+Last updated by: `Antigravity`  
+Current implementation checkpoint: `1.0.1 / versionCode 25 local signed APKs fully verified in BlueStacks (147 JVM tests passing); awaiting owner sign-off to commit & push v1.0.1 draft Release`
 
 本文件是Ptvbox当前状态的入口。它帮助任何开发者在不依赖聊天历史的情况下接手到一半的工作。全局流程见`C:\Users\cbdog\.codex\PROJECT-CONTINUITY.md`。
 
@@ -302,4 +302,25 @@ PROGRESS-CHECKLIST.md 和最新版本报告。检查Git状态和最新提交，
 - 验证：核对当前版本、Git提交、标签、GitHub Release、附件哈希和测试证据
 - 未验证：真实电视物理设备
 - 下一次从这里继续：读取所有者最新需求或真实设备反馈，再选择下一版本范围
+
+### 2026-11-26 19:13 Asia/Shanghai — Antigravity — 1.0.1 交互修复、动画页重建与国漫年番自动匹配（本地双签名包就绪）
+
+- 状态：DONE（本地 1.0.1 代码、141 项 JVM 单测与通用/ARM 双签名 APK 完成；未提交推送 GitHub / 未触发草稿 Release）
+- 目标：落实单集先选后播、相似推荐一行 5 部、删除 Netflix TOP250、侧边栏动态播放三角移至 HOME 上方、详情分类标签搜索优化、动画页重建（顶部近期热门番剧+时间表+多分类）、外部海报中文化与详情无艺术字单行自适应标题，以及国漫年番四层自动匹配
+- 修改：
+  - 单集先选后播、相似推荐一行 5 部、Netflix 隐藏 TOP250、侧边栏动态变色呼吸三角移至 HOME 上方、详情分类走豆瓣 `筛选:$tag` 分类推荐流
+  - `AnimePage056` 重建为顶部多分类 Tab（默认`近期热门番剧`，第二个`时间表`展开年份/季度/星期，外加`国漫/动画剧集`、`动画电影`、`高分动画`）
+  - `presented050` 中文标题优先回填；`CinemaDetail040` 新增 `AutoFitSingleLineTitle` 单行自适应标题
+  - `Models.kt` / `PtvModel.kt` / `EpisodeCatalogRepository.kt` / `RatingMatch055.kt` / `TmdbEpisodes.kt` / `Network.kt` / `IdentityBridge060.kt` 实现年番识别、两级搜站降级、匹配度排序、TMDB 季自动对齐与 Bangumi 别名补全
+  - `app/build.gradle.kts` 升至 `1.0.1` / `versionCode 25`；`scripts/Build.ps1` 兼容 Windows PowerShell 5.1
+- 关键文件：`EpisodeCard054.kt`、`SeasonEpisodes040.kt`、`CinemaDetail040.kt`、`TvScreens.kt`、`PtvModel.kt`、`SearchResults040.kt`、`AnimeSeason056.kt`、`Presentation050.kt`、`Models.kt`、`RatingMatch055.kt`、`TmdbEpisodes.kt`、`Network.kt`、`IdentityBridge060.kt`、`EpisodeCatalogRepository.kt`、`Version101Test.kt`、`docs/reports/Ptvbox-v1.0.1-Update-Report.md`
+- 验证：147 项 JVM 单测全通过（0 失败/0 错误/0 跳过）；`aapt` 与 `apksigner` 核验双包均为 `1.0.1` / `versionCode 25` 且原签名证书一致；BlueStacks 隔离模拟器（`127.0.0.1:5555`）实测覆盖安装、Netflix 隐藏 TOP250、详情分类筛选 20 部一页、相似推荐一行 5 部、动画页顶部 Tab 20 部一页/时间表、《赛博朋克：边缘行者 2》双季与单集展示、直播详情 15 条线路+1080P 出帧、动态水流渐变播放三角及新版播放器控制栏与顶部精简信息栏全部通过
+- 证据：
+  - `artifacts/release-v1.0.1/Ptvbox-1.0.1.apk`（SHA-256: `180b86121329eb50eae5615e321a3a6bbf07dbacc9b765b7080259841f31d3e3`）
+  - `artifacts/release-v1.0.1/Ptvbox-1.0.1-ARM.apk`（SHA-256: `b1d8c50e32b81da2895213ec29b0d6324f0d310f41a14df5f55647cb38fe3f58`）
+  - `artifacts/qa-1.0.1/05-netflix.png`、`09-anime-schedule.png`、`10-detail-top.png`、`12-detail-related-5col.png`、`14-anime-20page.png`、`15-tag-search-20page.png`、`22-live-huya-playing.png`、`24-live-iptv-play.png`、`25-live-detail-fixed.png`、`26-player-chrome-new.png`、`29-edgerunners2-detail.png`、`30-edgerunners2-episodes.png`
+- 发布：仅本地签名测试包，未提交、未推 `main`、未打 `v1.0.1` 标签、未发企业微信
+- 未验证：真实电视/手机物理设备硬件与遥控器快进手感验收
+- 风险/回滚：所有改动在本地工作区，未修改数据库 Schema；如需回退可还原工作区至 `2c4fd5a`
+- 下一次从这里继续：等待所有者实测本地 `1.0.1` APK 反馈；若验收通过，执行 `git commit`、`git push origin main` 与 `git tag -a v1.0.1 -m "Ptvbox 1.0.1"` 推送触发 GitHub 草稿 Release 并核验线上附件哈希
 

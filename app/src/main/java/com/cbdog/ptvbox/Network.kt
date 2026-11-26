@@ -48,12 +48,22 @@ class Metadata(private val db:Library) {
     val preloadCatalog get()=db.prefs.getBoolean("preload_catalog",false)
     internal val tmdbReady get()=db.secrets.read("tmdb").isNotBlank()
     private val doubanHeaders=mapOf("Referer" to "https://movie.douban.com/","Origin" to "https://movie.douban.com")
+    internal fun doubanHdImage(url:String):String {
+        if(url.isBlank())return ""
+        if(!url.contains("doubanio.com"))return url
+        return url
+            .replace("/view/photo/s_ratio_poster/","/view/photo/l/")
+            .replace("/view/photo/m_ratio_poster/","/view/photo/l/")
+            .replace("/view/photo/s/","/view/photo/l/")
+            .replace("/view/photo/m/","/view/photo/l/")
+    }
     internal fun dbWork(j:JSONObject,kind:String):Work {
         val cover=j.optJSONObject("pic")?:j.optJSONObject("images")?:j.optJSONObject("cover")
-        val poster=cover?.optString("url")?.ifBlank{cover.optString("normal").ifBlank{cover.optString("large")}}?:j.optString("cover").takeIf{it.startsWith("http")}.orEmpty().ifBlank{j.optString("cover_url")}
+        val rawPoster=cover?.optString("large")?.ifBlank{cover.optString("url").ifBlank{cover.optString("normal")}}?:j.optString("cover").takeIf{it.startsWith("http")}.orEmpty().ifBlank{j.optString("cover_url")}
+        val poster=doubanHdImage(rawPoster)
         val subtype=j.optString("type").ifBlank{j.optString("subtype")};return Work(j.optString("id"),j.optString("title").ifBlank{j.optString("name")},if(subtype=="tv"||kind=="tv")"tv" else "movie",j.optString("year").ifBlank{Regex("[12][0-9]{3}").find(j.optString("card_subtitle"))?.value.orEmpty()},poster,j.optString("intro").ifBlank{j.optString("summary")},j.optJSONObject("rating")?.optString("value")?.takeIf{it!="null"&&it!="0"}?:"-",original=j.optString("original_title"),aliases=j.arrayStrings("aka"),genres=j.arrayStrings("genres"),season=Identity.season(j.optString("title"))?:1,releaseDate=MetadataQueries040.date(j.opt("pubdate")),votes=j.optJSONObject("rating")?.optInt("count")?:0,episodeCount=j.optInt("episodes_count",0).takeIf{it>0}?:Regex("""(?:集数|总集数)[^\d]*(\d{1,5})""").find(j.optString("episodes_info")+j.optString("intro")+j.optString("summary"))?.groupValues?.get(1)?.toIntOrNull()?:0) 
     }
-    internal fun tmdbWork(j:JSONObject,kind:String):Work {val name=j.optString("title").ifBlank{j.optString("name")};return Work(j.optString("id"),name,kind,j.optString("release_date").ifBlank{j.optString("first_air_date")}.take(4),j.optString("poster_path").takeIf{it.isNotBlank()&&it!="null"}?.let{"https://image.tmdb.org/t/p/w342$it"}.orEmpty(),j.optString("overview"),j.optString("vote_average").takeIf{it!="0"&&it.isNotBlank()}?.take(3)?:"-","tmdb",j.optString("original_title").ifBlank{j.optString("original_name")},season=1,releaseDate=j.optString("release_date").ifBlank{j.optString("first_air_date")},votes=j.optInt("vote_count"),episodeCount=j.optInt("number_of_episodes",0))} 
+    internal fun tmdbWork(j:JSONObject,kind:String):Work {val name=j.optString("title").ifBlank{j.optString("name")};val votes=j.optInt("vote_count");val avg=j.optDouble("vote_average",0.0);val ratingText=if(votes>0&&avg>0.0)String.format(java.util.Locale.US,"%.1f",avg)else"-";return Work(j.optString("id"),name,kind,j.optString("release_date").ifBlank{j.optString("first_air_date")}.take(4),j.optString("poster_path").takeIf{it.isNotBlank()&&it!="null"}?.let{"https://image.tmdb.org/t/p/w342$it"}.orEmpty(),j.optString("overview"),ratingText,"tmdb",j.optString("original_title").ifBlank{j.optString("original_name")},season=1,releaseDate=j.optString("release_date").ifBlank{j.optString("first_air_date")},votes=votes,episodeCount=j.optInt("number_of_episodes",0))} 
     private fun detailCache(w:Work)=java.io.File(db.detailCacheDir,sha256(w.ratingViewKey.toByteArray())+".json")
     fun invalidateDetail(w:Work){runCatching{detailCache(w).delete()}}
     internal suspend fun tmdb(path:String,params:Map<String,String> = emptyMap()):JSONObject {val key=db.secrets.read("tmdb");if(key.isBlank())throw IOException("请到设置添加个人TMDB Key，豆瓣和点播不受影响");val q=params+mapOf("language" to "zh-CN","include_adult" to "false");return Net.json(Net.query("https://api.themoviedb.org/3/$path",if(key.length==32)q+mapOf("api_key" to key)else q),if(key.length==32)emptyMap()else mapOf("Authorization" to "Bearer $key"))}
@@ -78,8 +88,8 @@ class Metadata(private val db:Library) {
     suspend fun details(work:Work):Work {
         if(work.provider.startsWith("site_")||work.provider=="anilist")return work
         val cacheFile=detailCache(work)
-        if(cacheFile.isFile&&System.currentTimeMillis()-cacheFile.lastModified()<6*60*60*1000L){
-            runCatching{Work.from(JSONObject(cacheFile.readText()))}.getOrNull()?.let{return it.copy(identityKey=work.identityKey.ifBlank{it.identityKey},season=work.season,catalogSeason=work.catalogSeason)}
+        if(cacheFile.isFile){
+            runCatching{Work.from(JSONObject(cacheFile.readText()))}.getOrNull()?.let{CacheBudget101.touch(cacheFile);return it.copy(identityKey=work.identityKey.ifBlank{it.identityKey},season=work.season,catalogSeason=work.catalogSeason)}
         }
         val fresh=if(work.provider=="tmdb") {
             val json=tmdb("${work.kind}/${work.id}",mapOf("append_to_response" to "credits,external_ids,alternative_titles"))
@@ -97,13 +107,15 @@ class Metadata(private val db:Library) {
             }.filter{it.name.isNotBlank()}.distinctBy{it.id.ifBlank{it.name}}.ifEmpty{
                 listOf("directors" to "导演","actors" to "演员").flatMap{(field,role)->j.optJSONArray(field)?.objects().orEmpty().take(16).map{p->PersonCredit(p.optString("id"),p.optString("name"),role,(p.optJSONObject("avatar")?.let{it.optString("large").ifBlank{it.optString("normal")}}?:p.optString("avatar")).takeIf{it.startsWith("http")}.orEmpty(),"douban")}}.filter{it.name.isNotBlank()}.distinctBy{it.id.ifBlank{it.name}}
             }
-            dbWork(j,actual).copy(season=work.season,people=people,facts=WorkFacts.douban(j))
+            val photos=runCatching{Net.json("https://m.douban.com/rexxar/api/v2/$actual/${work.id}/photos?start=0&count=6",doubanHeaders)}.getOrNull()?.optJSONArray("photos")?.objects().orEmpty()
+            val landscapeBackdrop=photos.firstOrNull{p->val img=p.optJSONObject("image")?.optJSONObject("large");(img?.optInt("width",0)?:0)>(img?.optInt("height",0)?:0)}?.optJSONObject("image")?.optJSONObject("large")?.optString("url").orEmpty().ifBlank{photos.firstOrNull()?.optJSONObject("image")?.optJSONObject("large")?.optString("url").orEmpty()}
+            dbWork(j,actual).copy(season=work.season,backdrop=doubanHdImage(landscapeBackdrop),people=people,facts=WorkFacts.douban(j))
         }
         val identified=runCatching{resolveIdentity060(fresh)}.getOrDefault(fresh)
         val selectedSeason=work.kind=="tv"&&work.season!=fresh.catalogSeason
         val otherSeason=selectedSeason&&work.provider=="douban"
         return identified.copy(title=if(selectedSeason)work.title else identified.title,year=if(selectedSeason)work.year else identified.year,rating=if(otherSeason)"-"else identified.rating,votes=if(otherSeason)0 else identified.votes,releaseDate=if(selectedSeason)work.releaseDate else identified.releaseDate.ifBlank{work.releaseDate},identityKey=work.identityKey.ifBlank{if(identified.kind!=work.kind&&identified.provider==work.provider&&identified.id==work.id)work.key else ""},poster=identified.poster.ifBlank{work.poster},original=identified.original.ifBlank{work.original},aliases=(identified.aliases+work.aliases).distinct()).also{result->
-            db.cache(result);runCatching{cacheFile.writeText(result.json().toString())}
+            db.cache(result);runCatching{cacheFile.writeText(result.json().toString());CacheBudget101.trimDirectory(db.detailCacheDir)}
         }
     }
     suspend fun related(work:Work):List<Work> = if(work.provider=="tmdb")tmdb("${work.kind}/${work.id}/recommendations").optJSONArray("results")?.objects()?.map{tmdbWork(it,work.kind)}?.filter{it.id.isNotBlank()&&it.title.isNotBlank()}?.take(16).orEmpty()else{
@@ -152,18 +164,28 @@ class Metadata(private val db:Library) {
     suspend fun validateCredential(value:String):Boolean {require(value.isNotBlank()&&value.length<=4096&&!value.any{it.isWhitespace()});val key=value.trim();return Net.json(Net.query("https://api.themoviedb.org/3/configuration",if(key.length==32)mapOf("api_key" to key)else emptyMap()),if(key.length==32)emptyMap()else mapOf("Authorization" to "Bearer $key")).has("images")}
     suspend fun episodeSeries(work:Work,selectedSeason:Int=work.season,manualId:String?=null,onOutline:(SeriesMeta)->Unit={}):SeriesMeta? {
         if(work.kind!="tv"||db.secrets.read("tmdb").isBlank()||(manualId==null&&db.prefs.getString("rating_link_${work.key}_tmdb",null)=="none"))return null
-        var id=manualId?:db.prefs.getString("tmdb_link_${work.key}",null)?:work.id.takeIf{work.provider=="tmdb"}
+        val savedRatingId=db.prefs.getString(ratingStorageKey(work,"tmdb"),null)?.takeIf{it.matches(Regex("[0-9]{1,12}"))}
+        var id=manualId?:work.facts.tmdbId.takeIf{it.matches(Regex("[0-9]{1,12}"))}?:savedRatingId?:db.prefs.getString("tmdb_link_${work.key}",null)?:work.id.takeIf{work.provider=="tmdb"}
         if(id==null){
-            val names=(listOf(work.title,work.original)+work.aliases).filter{it.isNotBlank()}.distinct()
-            val hits=names.take(3).flatMap{q->tmdb("search/tv",mapOf("query" to Identity.searchTitle(q).ifBlank{q})).optJSONArray("results")?.objects().orEmpty()}.distinctBy{it.optString("id")}
-            val matches=hits.filter{j->listOf(j.optString("name"),j.optString("original_name")).any{name->names.any{Identity.base(it)==Identity.base(name)}}&&(work.season>1||work.year.isBlank()||j.optString("first_air_date").take(4)==work.year)}
+            val names=MetadataQueries040.names(work)
+            val nianfan=Identity.isNianfan(work)
+            val sequelSeason=Identity.season(work.title)?:Identity.trailingSeason(work.title)?:work.season
+            val hits=names.take(4).flatMap{q->val clean=Identity.stripTrailingSeason(Identity.searchTitle(q)).ifBlank{q};tmdb("search/tv",mapOf("query" to clean)).optJSONArray("results")?.objects().orEmpty()}.distinctBy{it.optString("id")}
+            val matches=hits.filter{j->listOf(j.optString("name"),j.optString("original_name")).any{name->names.any{Identity.base(Identity.stripTrailingSeason(it))==Identity.base(Identity.stripTrailingSeason(name))}}&&(nianfan||sequelSeason>1||work.year.isBlank()||j.optString("first_air_date").take(4)==work.year)}
             if(matches.size!=1)return null
             id=matches.single().optString("id")
         }
         require(id.matches(Regex("[0-9]{1,12}"))){"请输入数字TMDB剧集ID"}
         val show=tmdb("tv/$id");val seasons=show.optJSONArray("seasons")?.objects()?.map{SeasonMeta(it.optInt("season_number"),it.optString("name"),it.optString("air_date").take(4),it.optInt("episode_count"),it.optString("poster_path").takeIf{path->path.startsWith('/')}?.let{path->"https://image.tmdb.org/t/p/w185$path"}.orEmpty(),it.optString("overview"),it.optString("air_date"))}.orEmpty()
-        onOutline(EpisodeRail055.outline(id,show.optString("name"),show.optString("original_name"),seasons,selectedSeason))
-        val season=tmdb("tv/$id/season/$selectedSeason");if(manualId!=null)saveRatingLink(work,"tmdb",id);db.prefs.edit().putString("tmdb_link_${work.key}",id).apply()
+        val desiredSeason=if(manualId!=null||selectedSeason!=work.catalogSeason)selectedSeason else TmdbSeasonResolver101.pickSeason(work,selectedSeason,seasons)
+        val regularSeasons=seasons.filter{it.number>0}
+        val resolvedSeason=if(regularSeasons.any{it.number==desiredSeason})desiredSeason else regularSeasons.lastOrNull()?.number?:desiredSeason
+        onOutline(EpisodeRail055.outline(id,show.optString("name"),show.optString("original_name"),seasons,resolvedSeason))
+        val season=try{tmdb("tv/$id/season/$resolvedSeason")}catch(e:CancellationException){throw e}catch(e:Exception){
+            val fallbackNum=regularSeasons.lastOrNull{it.number!=resolvedSeason}?.number
+            if(fallbackNum!=null)runCatching{tmdb("tv/$id/season/$fallbackNum")}.getOrElse{JSONObject()} else JSONObject()
+        }
+        if(manualId!=null)saveRatingLink(work,"tmdb",id);db.prefs.edit().putString("tmdb_link_${work.key}",id).apply()
         return SeriesMeta(id,show.optString("name"),show.optString("original_name"),seasons,TmdbEpisodeParser.episodes(season))
     }
 }
@@ -190,8 +212,8 @@ val dd=v.getElementsByTagName("dd");Vod(field("id"),field("name"),field("year"),
         if(!interactive&&CloudPolicy054.needsAuthorization(site)&&System.currentTimeMillis()-db.prefs.getLong("cloud_authenticated_${site.key}",0)>30L*86400000)throw IOException("需要扫码授权，请手动打开网盘")
         val resolved=if(site.type==3)bridge.player(site,road,episode)else if(site.type==9)anime.resolve(site,episode)else episode to emptyMap();var media=resolved.first;var requestSite=site.copy(headers=site.headers+resolved.second+if(site.type==8)Stremio050.headersFor(media.url)else emptyMap())
         val u=media.url.toHttpUrlOrNull()?:throw IOException("播放地址无效");if(u.scheme !in listOf("http","https"))throw IOException("线路协议未支持")
-        val start=System.nanoTime();var data=Net.bytes(media.url,requestSite.headers+mapOf("Range" to "bytes=0-4095"),4096,true,direct=requestSite.type==8)
-        if(!MediaBytes052.accept(data)){val html=data.toString(Charsets.UTF_8);if(html.trimStart().startsWith("<")||media.url.contains("/play")){val result=WebMedia052.resolve(context,media.url,requestSite.headers,html);media=media.copy(url=result.first);requestSite=requestSite.copy(headers=result.second);data=Net.bytes(media.url,requestSite.headers+mapOf("Range" to "bytes=0-4095"),4096,true,direct=requestSite.type==8)}}
+        val start=System.nanoTime();var data=try{Net.bytes(media.url,requestSite.headers+mapOf("Range" to "bytes=0-4095"),4096,true,direct=requestSite.type==8)}catch(e:CancellationException){throw e}catch(e:Exception){if(LiveParser050.isPortal(site)||site.group=="直播与体育"||e.message.orEmpty().contains("HTTP 405")||e.message.orEmpty().contains("HTTP 416")||e.message.orEmpty().contains("HTTP 501"))Net.bytes(media.url,requestSite.headers,4096,true,direct=requestSite.type==8)else throw e}
+        if(!MediaBytes052.accept(data)){val html=data.toString(Charsets.UTF_8);if(html.trimStart().startsWith("<")||media.url.contains("/play")||LiveParser050.isPortal(site)||site.group=="直播与体育"){val result=WebMedia052.resolve(context,media.url,requestSite.headers,html);media=media.copy(url=result.first);requestSite=requestSite.copy(headers=result.second);data=try{Net.bytes(media.url,requestSite.headers+mapOf("Range" to "bytes=0-4095"),4096,true,direct=requestSite.type==8)}catch(e:CancellationException){throw e}catch(_:Exception){Net.bytes(media.url,requestSite.headers,4096,true,direct=requestSite.type==8)}}}
         val text=data.toString(Charsets.UTF_8);val hls=MediaBytes052.hls(data);if(!MediaBytes052.accept(data))throw IOException("线路返回网页或无效媒体，请切换其他线路")
         val height=Regex("RESOLUTION=\\d+x(\\d+)").findAll(text).mapNotNull{it.groupValues[1].toIntOrNull()}.maxOrNull()?:Regex("(720|1080|2160)[pP]").find(road.name)?.groupValues?.get(1)?.toInt()?:0
         return Candidate(requestSite,road.name,media,height,bytes=ResourceLabels040.bytes(road.name+" "+episode.name),delay=(System.nanoTime()-start)/1_000_000,mimeType=if(hls)"application/x-mpegURL"else if(data.size>=4&&data.take(4).toByteArray().contentEquals(byteArrayOf(0x1a,0x45,0xdf.toByte(),0xa3.toByte())))"video/x-matroska"else "")

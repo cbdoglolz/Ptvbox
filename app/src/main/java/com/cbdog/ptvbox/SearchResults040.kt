@@ -28,14 +28,14 @@ internal object SearchFilter060 {
     val grid=rememberLazyGridState()
     var selected by rememberSaveable{mutableStateOf("")}
     var kinds by remember(initialGenre){mutableStateOf<Set<String>>(emptySet())}
-    var genres by remember(initialGenre){mutableStateOf<Set<String>>(if(initialGenre.isBlank())emptySet()else setOf(initialGenre))}
+    var genres by remember(initialGenre){mutableStateOf<Set<String>>(emptySet())}
     var resolutions by remember(initialGenre){mutableStateOf<Set<String>>(emptySet())}
     var sort by rememberSaveable{mutableStateOf("default")}
     val mode=remember(m.preferencesRevision){m.config.text("search_display","sites")}
     val base=m.searchResults.filter{provider.isBlank()||it.provider==provider}
-    val allGenres=base.flatMap{it.genres}.distinct().sorted().take(18)
+    val allGenres=base.flatMap{it.genres}.map{DetailFact056.display(it)}.groupingBy{it}.eachCount().entries.sortedWith(compareByDescending<Map.Entry<String,Int>>{it.value}.thenBy{it.key}).map{it.key}.take(18)
     val rows=base.filter{w->
-        (kinds.isEmpty()||w.kind in kinds)&&(genres.isEmpty()||w.genres.any{it in genres})&&(resolutions.isEmpty()||SearchFilter060.resolution(w) in resolutions)
+        (kinds.isEmpty()||w.kind in kinds)&&(genres.isEmpty()||w.genres.any{DetailFact056.display(it) in genres})&&(resolutions.isEmpty()||SearchFilter060.resolution(w) in resolutions)
     }.let{w->when(sort){"yearAsc"->w.sortedWith(compareBy<Work>{SearchFilter060.year(it)}.thenBy{it.title});"yearDesc"->w.sortedWith(compareByDescending<Work>{SearchFilter060.year(it)}.thenBy{it.title});"rating"->w.sortedByDescending{SearchFilter060.rating(it)};"size"->w.sortedBy{SearchFilter060.bytes(it)};else->w}}
     val groups=rows.groupBy{it.provider}
     fun label(key:String)=m.availableSites.firstOrNull{key=="site_${it.key}"}?.name?:when(key){"douban"->"豆瓣";"tmdb"->"TMDB";else->key}
@@ -49,6 +49,16 @@ internal object SearchFilter060 {
         if(groups.keys.any{it.startsWith("site_")}&&mode=="sites")LazyRow(horizontalArrangement=Arrangement.spacedBy(6.dp)){item{PcChip("全部站点",selected.isBlank(),{selected=""})};items(groups.keys.toList(),key={it}){key->PcChip("${label(key)} ${groups[key]?.size}",selected==key,{selected=key})}}
         if(mode=="groups"&&groups.keys.any{it.startsWith("site_")}){
             LazyColumn(verticalArrangement=Arrangement.spacedBy(18.dp)){items(groups.keys.toList(),key={it}){key->Column(verticalArrangement=Arrangement.spacedBy(9.dp)){PcSection(label(key));LazyRow(horizontalArrangement=Arrangement.spacedBy(14.dp)){items(groups[key].orEmpty(),key={it.key}){CinemaPoster(m,it,"search-group-$key")}}}}}
-        }else LazyVerticalGrid(GridCells.Adaptive(112.dp),state=grid,horizontalArrangement=Arrangement.spacedBy(10.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){items(rows.filter{selected.isBlank()||selected !in groups||it.provider==selected},key={it.key}){CinemaPoster(m,it,"search")}}
+        }else{
+            var localLimit by remember(initialGenre,m.query,selected,kinds,genres,resolutions,sort){mutableIntStateOf(20)}
+            val visibleAll=rows.filter{selected.isBlank()||selected !in groups||it.provider==selected}
+            val shownRows=visibleAll.take(localLimit)
+            val canLoadMore=shownRows.size<visibleAll.size||(m.searchFilterGenre056.isNotBlank()&&m.searchFilterMore056)
+            fun loadMore(){if(shownRows.size<visibleAll.size)localLimit+=20 else m.loadMoreFilterSearch056()}
+            LazyVerticalGrid(GridCells.Adaptive(112.dp),state=grid,modifier=Modifier.pagedDown051(grid,shownRows.map{it.key},{m.focusWork.takeIf{m.focusRow=="search"}},m.busy,canLoadMore,::loadMore),horizontalArrangement=Arrangement.spacedBy(10.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){
+                items(shownRows,key={it.key}){CinemaPoster(m,it,"search")}
+                if(canLoadMore)item(span={GridItemSpan(maxLineSpan)}){MoreHint051(m.busy,true,::loadMore)}
+            }
+        }
     }
 }

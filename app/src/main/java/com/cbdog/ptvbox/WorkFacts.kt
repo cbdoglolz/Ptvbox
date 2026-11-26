@@ -18,6 +18,6 @@ data class WorkFacts(val runtime:Int=0,val countries:List<String> = emptyList(),
 /** External metadata enriches one stable work; it never replaces its local identity. */
 fun Work.enriched(other:Work)=copy(
     overview=other.overview.ifBlank{overview},poster=other.poster.ifBlank{poster},backdrop=other.backdrop.ifBlank{backdrop},
-    original=other.original.ifBlank{original},aliases=(aliases+other.aliases+listOf(other.title)).filter{it.isNotBlank()}.distinct(),
+    original=other.original.ifBlank{original},aliases=((if(InfoChinese056.isLikelyChinese(other.title))listOf(other.title)else emptyList())+aliases+other.aliases+listOf(other.title)).filter{it.isNotBlank()}.distinct(),
     genres=other.genres.ifEmpty{genres},people=other.people.ifEmpty{people},releaseDate=other.releaseDate.ifBlank{releaseDate},
     facts=other.facts.copy(runtime=other.facts.runtime.takeIf{it>0}?:facts.runtime,countries=other.facts.countries.ifEmpty{facts.countries},languages=other.facts.languages.ifEmpty{facts.languages},companies=other.facts.companies.ifEmpty{facts.companies},collectionId=other.facts.collectionId.ifBlank{facts.collectionId},collectionName=other.facts.collectionName.ifBlank{facts.collectionName},imdbId=other.facts.imdbId.ifBlank{facts.imdbId},doubanId=other.facts.doubanId.ifBlank{facts.doubanId},tmdbId=other.facts.tmdbId.ifBlank{facts.tmdbId},bangumiId=other.facts.bangumiId.ifBlank{facts.bangumiId}))

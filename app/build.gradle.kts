@@ -6,8 +6,8 @@ android {
         applicationId = "com.cbdog.ptvbox"
         minSdk = 26
         targetSdk = 35
-        versionCode = 24
-        versionName = "1.0.0"
+        versionCode = 25
+        versionName = "1.0.1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     buildFeatures { compose = true; buildConfig = true }

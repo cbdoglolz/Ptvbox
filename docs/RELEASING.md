@@ -25,8 +25,8 @@ Each component is a single digit from `0` through `9`. Carry to the next compone
 2. Update the report, requirement checklist and `PROJECT-CONTINUITY.md`.
 3. Run the JVM tests, build universal and ARM APKs, verify the original signing certificate, and audit the package contents.
 4. Commit the source and push `main`.
-5. Create an annotated tag exactly matching `vVERSION`, for example `v1.0.0`, and push the tag.
-6. GitHub Actions runs `scripts/Build-GitHub.sh` and creates a draft Release.
+5. Create an annotated tag exactly matching `vVERSION`, for example `v1.0.1`, and push the tag.
+6. GitHub Actions runs `scripts/Build-GitHub.sh` and publishes a public Release so in-app update checks work directly.
 
 The Release title and body contain only `Ptvbox VERSION`. Attachments contain only:
 
@@ -35,4 +35,8 @@ The Release title and body contain only `Ptvbox VERSION`. Attachments contain on
 
 Build logs, test reports, screenshots, personal subscriptions, credentials, signing keys and databases must never be Release assets.
 
-Releases remain drafts under the owner's account. The owner can download the APK assets before publishing.
+## Pre-release candidate iterations (`-c1`, `-c2`, ...)
+
+- Unreleased local test builds use `X.Y.Z-c1`, `X.Y.Z-c2`, etc. (same target `versionCode`), built into a single reused `artifacts/candidate-vX.Y.Z/` directory where each new candidate replaces the previous candidate APKs to save disk space.
+- All iteration history stays recorded in `PROJECT-CONTINUITY.md` and `PROGRESS-CHECKLIST.md`.
+- Once the formal `X.Y.Z` release is published, remove `artifacts/candidate-vX.Y.Z/` automatically.

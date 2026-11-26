@@ -41,7 +41,7 @@ import coil3.compose.AsyncImage
                 }}
             }else show.seasons.firstOrNull()?.let{season->Text("${season.name} · ${season.year} · ${season.count}集",color=PcAccent,fontSize=13.sp)}
             LazyRow(horizontalArrangement=Arrangement.spacedBy(12.dp),contentPadding=PaddingValues(4.dp)){
-                items(show.episodes,key={it.number}){episode->EpisodeCard054(m,w,episode){focusedEpisode=it;episodeInteracted=true}}
+                items(show.episodes,key={it.number}){episode->EpisodeCard054(m,w,episode,selected=episodeInteracted&&focusedEpisode?.number==episode.number){focusedEpisode=it;episodeInteracted=true}}
             }
             focusedEpisode?.let{episode->EpisodeSynopsis060(episode,expanded,{expanded=!expanded},Modifier.bringIntoViewRequester(synopsisBring))}
         }

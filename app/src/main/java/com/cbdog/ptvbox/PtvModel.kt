@@ -122,12 +122,12 @@ class PtvModel(app:Application):AndroidViewModel(app) {
             override fun onIsPlayingChanged(isPlaying:Boolean){playing=isPlaying}
             override fun onRenderedFirstFrame(){val actual=player.videoSize.height;val expected=oldWatch?.height?:0;if(!ResumePolicy040.decodedAccepts(expected,actual,automaticSelection)){val failed=currentCandidate;if(failed!=null)candidates=candidates.map{if(it.identity==failed.identity)it.copy(height=actual)else it};PlaybackOwner.clear();failCandidate("该线路实际${actual}P低于上次${expected}P，继续查找；可手动选择替代");return};rendered=true;streamLoading=false;startupJob?.cancel()}
             override fun onPlaybackStateChanged(state:Int){streamLoading=state==Player.STATE_BUFFERING;if(state==Player.STATE_ENDED){if(current?.provider=="live")recoverLive054()else{saveProgress(true);message("本集播放完毕，可选择下一集")}}}
-            override fun onPlayerError(e:PlaybackException){if(current?.provider=="live"){recoverLive054();return};streamLoading=false;val causes=generateSequence<Throwable>(e){it.cause}.take(10).toList();val status=causes.filterIsInstance<androidx.media3.datasource.HttpDataSource.InvalidResponseCodeException>().firstOrNull()?.responseCode;failCandidate("线路播放失败：${if(status!=null)"HTTP $status · "else""}${e.errorCodeName}")}
+            override fun onPlayerError(e:PlaybackException){if(current?.provider=="live"){recoverLive054();return};val now=android.os.SystemClock.elapsedRealtime();val causes=generateSequence<Throwable>(e){it.cause}.take(10).toList();val status=causes.filterIsInstance<androidx.media3.datasource.HttpDataSource.InvalidResponseCodeException>().firstOrNull()?.responseCode;if(now-lastSeekAt057<5000L&&seekRecoveryCount057<1&&status !in listOf(401,403,404,410)){seekRecoveryCount057++;val target=seekTarget051.coerceAtLeast(0);player.seekTo(target);player.prepare();player.play();return};streamLoading=false;failCandidate("线路播放失败：${if(status!=null)"HTTP $status · "else""}${e.errorCodeName}")}
             override fun onVolumeChanged(volume:Float){this@PtvModel.volume=volume;db.prefs.edit().putFloat("volume",volume).apply()}
             override fun onTracksChanged(tracks:Tracks){trackRevision++;playbackCapability060=PlaybackCapabilities060.inspect(tracks,getApplication());restoreAudio()}
         })
     }
-    private fun ensurePlayer(){if(playerReleased||!PlaybackOwner.isCurrent(player)){player=createPlayer();playerReleased=false;attachPlayer()}}
+    private fun ensurePlayer(){if(playerReleased||!PlaybackOwner.isCurrent(player)){runCatching{player.stop();player.release()};player=createPlayer();playerReleased=false;attachPlayer()}}
     private val utilityTrail=mutableListOf<String>()
     fun utility(target:String){if(screen!=target){utilityTrail+=screen;screen=target}}
     fun onForeground(){PlaybackOwner.foreground=true;if(PlaybackOwner.saveError.isNotBlank()){message(PlaybackOwner.saveError);PlaybackOwner.saveError=""};if(!PlaybackOwner.isCurrent(player)){val previous=current;playerReleased=true;current=null;playing=false;streamLoading=false;if(screen=="player"&&previous!=null){detail=previous;screen="detail"}}}
@@ -207,14 +207,53 @@ class PtvModel(app:Application):AndroidViewModel(app) {
         notice=value;viewModelScope.launch{delay(4000);if(notice==value)notice=""}
     }
     fun loadFeed(more:Boolean=false){if(more&&busy)return;feedJob?.cancel();feedJob=viewModelScope.launch{busy=true;error="";try{val page=if(more)feedPage+1 else 1;val rows=withContext(Dispatchers.IO){metadata.feed(provider,kind,category,page,includeUpcoming)};feedHasMore=rows.any{row->!more||feed.none{it.key==row.key}};feed=(if(more)feed+rows else rows).distinctBy{it.key};feedPage=page;if(rows.isEmpty())message("当前没有更多条目")}catch(e:CancellationException){throw e}catch(e:Exception){if(feed.isEmpty())feed=withContext(Dispatchers.IO){db.cached().filter{it.kind==kind}};error="资料暂不可用，已有缓存保留；可以使用搜索或按资源站浏览"}finally{busy=false}}}
-    fun changeFeed(p:String=provider,k:String=kind,c:String=category){feedJob?.cancel();if(feed.isNotEmpty())feedCache[feedKey()]=feed to feedPage;val target=if(screen=="library")"library"else"home";provider=p;kind=k;category=c;screen=target;feedHasMore=true;val cached=feedCache[feedKey()];feed=cached?.first?:emptyList();feedPage=cached?.second?:0;busy=false;if(cached==null)loadFeed();loadDashboard()}
+    fun changeFeed(p:String=provider,k:String=kind,c:String=category){feedJob?.cancel();if(feed.isNotEmpty())feedCache[feedKey()]=feed to feedPage;val target=if(screen=="library")"library"else"home";val effectiveCategory=if(p=="netflix"&&c=="TOP250")"热门"else c;provider=p;kind=k;category=effectiveCategory;screen=target;feedHasMore=true;val cached=feedCache[feedKey()];feed=cached?.first?:emptyList();feedPage=cached?.second?:0;busy=false;if(cached==null)loadFeed();loadDashboard()}
     var searchFilterKind056 by mutableStateOf("")
     var searchFilterGenre056 by mutableStateOf("")
+    var searchFilterPage056 by mutableIntStateOf(0)
+    var searchFilterMore056 by mutableStateOf(false)
     fun filterSearch056(kind:String,label:String){
         val normalized=DetailFact056.normalize(label);if(normalized.isBlank())return
-        searchFilterKind056=kind;searchFilterGenre056=normalized;query=normalized;screen="search";searchRevision055++
-        val cached=runCatching{db.cached()}.getOrDefault(emptyList()).filter{it.kind==kind&&it.genres.any{Identity.normalize(it)==Identity.normalize(normalized)}}
-        if(cached.isNotEmpty()){searchResults=cached}else search(normalized)
+        queryJob055?.cancel();queryGeneration055++;val token=queryGeneration055
+        searchFilterKind056=kind;searchFilterGenre056=normalized;searchFilterPage056=0;searchFilterMore056=true;query=normalized;screen="search";searchRevision055++;busy=true
+        val normKey=Identity.normalize(normalized)
+        val cached=runCatching{db.cached()}.getOrDefault(emptyList()).filter{w->
+            (w.kind==kind||kind.isBlank())&&(w.year==normalized||w.genres.any{Identity.normalize(DetailFact056.display(it))==normKey}||w.facts.countries.any{Identity.normalize(DetailFact056.display(it))==normKey})
+        }.take(20)
+        searchResults=cached
+        queryJob055=viewModelScope.launch{
+            try{
+                val remote=withContext(Dispatchers.IO){
+                    val primary=runCatching{metadata.feed("douban",kind,"筛选:$normalized",1,includeUpcoming)}.getOrDefault(emptyList())
+                    if(primary.isNotEmpty())primary else{
+                        val altKind=if(kind=="movie")"tv"else"movie"
+                        runCatching{metadata.feed("douban",altKind,"筛选:$normalized",1,includeUpcoming)}.getOrDefault(emptyList())
+                    }
+                }
+                if(token!=queryGeneration055)return@launch
+                searchFilterPage056=1
+                searchFilterMore056=remote.size>=18
+                searchResults=(remote+cached).distinctBy{it.key}.take(20)
+                if(searchResults.isEmpty())message("未找到「$normalized」相关分类作品，可尝试输入片名或切换搜索源")
+            }catch(e:CancellationException){throw e}catch(_:Exception){
+                if(token==queryGeneration055&&searchResults.isEmpty())message("分类加载暂不可用，请稍后重试")
+            }finally{if(token==queryGeneration055)busy=false}
+        }
+    }
+    fun loadMoreFilterSearch056(){
+        if(busy||!searchFilterMore056||searchFilterGenre056.isBlank())return
+        val token=queryGeneration055;val nextPage=searchFilterPage056+1;val kind=searchFilterKind056.ifBlank{"tv"};val normalized=searchFilterGenre056
+        busy=true
+        queryJob055=viewModelScope.launch{
+            try{
+                val remote=withContext(Dispatchers.IO){runCatching{metadata.feed("douban",kind,"筛选:$normalized",nextPage,includeUpcoming)}.getOrDefault(emptyList())}
+                if(token!=queryGeneration055)return@launch
+                searchFilterPage056=nextPage
+                val added=remote.filter{r->searchResults.none{it.key==r.key}}
+                searchFilterMore056=added.isNotEmpty()&&remote.size>=18
+                searchResults=(searchResults+added).distinctBy{it.key}
+            }catch(e:CancellationException){throw e}catch(_:Exception){searchFilterMore056=false}finally{if(token==queryGeneration055)busy=false}
+        }
     }
     @Deprecated("Details now open the cross-filter search page.") fun browseDetailFact056(kind:String,label:String)=filterSearch056(kind,label)
     var creditPage055 by mutableStateOf<CreditPage055?>(null)
@@ -252,7 +291,7 @@ class PtvModel(app:Application):AndroidViewModel(app) {
                 val routes=resolved.vod.roads.flatMap{r->r.episodes.map{r to it}}.distinctBy{it.first.name+"|"+it.second.url};total=routes.size;episodeNames=routes.map{it.first.name+" · "+it.second.name}.distinct()
                 if(!config.incognito)withContext(Dispatchers.IO){db.secrets.save("live_last",resolved.json().toString());db.secrets.save("live_entry_${entry.work.id}",resolved.json().toString())}
                 for((road,ep) in routes){if(token!=generation)return@launch
-                    try{val c=withTimeout(25000){sites.probe(resolved.site,road,ep)}.let{it.copy(episode=it.episode.copy(name=road.name+" · "+ep.name),sourceId=entry.site.key+"|"+entry.vod.id+"|"+road.name)};if(token!=generation)return@launch;candidates=(candidates+c).distinctBy{it.identity};if(!refreshOnly&&currentCandidate==null&&(preferred.isBlank()||preferred==road.name+"|"+ep.name))select(c,0,false)}catch(e:CancellationException){if(e !is TimeoutCancellationException)throw e}catch(e:Exception){val reason=Regex("HTTP \\d{3}").find(e.message.orEmpty())?.value?:if(e.message.orEmpty().contains("Access"))"播放接口需要访问授权"else"直播解析或媒体访问失败";liveRouteErrors054=liveRouteErrors054+(road.name+" · "+ep.name to reason)};checked++
+                    try{val c=withTimeout(35000){sites.probe(resolved.site,road,ep)}.let{it.copy(episode=it.episode.copy(name=road.name+" · "+ep.name),sourceId=entry.site.key+"|"+entry.vod.id+"|"+road.name)};if(token!=generation)return@launch;candidates=(candidates+c).distinctBy{it.identity};if(!refreshOnly&&currentCandidate==null&&(preferred.isBlank()||preferred==road.name+"|"+ep.name))select(c,0,false)}catch(e:CancellationException){if(e !is TimeoutCancellationException)throw e}catch(e:Exception){val reason=Regex("HTTP \\d{3}").find(e.message.orEmpty())?.value?:if(e.message.orEmpty().contains("Access"))"播放接口需要访问授权"else"直播解析或媒体访问失败";liveRouteErrors054=liveRouteErrors054+(road.name+" · "+ep.name to reason)};checked++
                 }
                 if(!refreshOnly&&currentCandidate==null&&candidates.isNotEmpty())select(candidates.first(),0,false)
                 if(candidates.isEmpty()){streamLoading=false;message("此频道暂无通过检测的直播线路，请刷新频道或更换直播源；未搜索点播")}
@@ -281,9 +320,9 @@ class PtvModel(app:Application):AndroidViewModel(app) {
                         var hits=hitCache052[site.key]?:withContext(Dispatchers.IO){if(site.type==8)listOf(Stremio050.lookup(site,work,currentEpisode,metadata))else {
                             val id=Variant052.previousId(cached).takeIf{site.key==cached?.siteKey};val prior=id?.let{runCatching{sites.detail(site,Vod(it,work.title,work.year,work.poster,work.overview,emptyList()))}.getOrNull()};if(prior!=null)listOf(prior)else sites.search(site,work.title)
                         }}
-                        for(alias in (if(site.type==8)emptyList()else listOf(work.original)+work.aliases).filter{it.isNotBlank()&&it!=work.title}.take(2))if(hits.none{Identity.matches(work,it)})hits=hits+withContext(Dispatchers.IO){sites.search(site,alias)}
+                        for(alias in (if(site.type==8)emptyList()else Identity.searchQueries(work).filter{it!=work.title}.take(3)))if(hits.none{Identity.matches(work,it)})hits=hits+withContext(Dispatchers.IO){sites.search(site,alias)}
                         hitCache052[site.key]=hits
-                        val matching=hits.filter{Identity.matches(work,it)}.distinctBy{it.id}.take(5)
+                        val matching=hits.filter{Identity.matches(work,it)}.distinctBy{it.id}.sortedByDescending{Identity.matchScore(work,it)}.take(5)
                         if(matching.isEmpty()){updateSite(site,"NA · 没有匹配作品");return@withPermit}
                         var successful=false;var probeFailure=""
                         for(row in matching){val vod=withContext(Dispatchers.IO){sites.detail(site,row)};vod.roads.forEach{r->roadEpisodes051[site.key+"|"+vod.id+"|"+r.name]=r.episodes;roadEpisodes051[site.key+"|"+r.name]=r.episodes};
@@ -322,9 +361,11 @@ class PtvModel(app:Application):AndroidViewModel(app) {
     private fun updateSite(site:Site,text:String,candidate:Candidate?=null){siteStates=siteStates.map{if(it.site.key==site.key)SiteStatus(site,text,candidate!=null,candidate)else it}}
     private val seekPatches051=mutableMapOf<String,MkvSeek051.Patch>()
     private var seekJob051:Job?=null
+    private var lastSeekAt057:Long=0L
+    private var seekRecoveryCount057:Int=0
     fun select(candidate:Candidate,start:Long=position,automatic:Boolean=false){
-        seekJob051?.cancel()
-        val work=current?:return;automaticSelection=automatic;ensurePlayer();startupJob?.cancel();saveProgress();tried.add(candidate.identity);playbackCapability060=PlaybackCapability060(display=PlaybackCapabilities060.display(getApplication()));currentCandidate=candidate;currentEpisode=candidate.episode.name;if(work.provider!="live")episodeNames=Episodes051.names(work.kind,currentEpisode,candidate,candidates,roadEpisodes051);resume=start;rendered=false;streamLoading=true;initialStart=false
+        seekJob051?.cancel();seekRecoveryCount057=0
+        val work=current?:return;automaticSelection=automatic;ensurePlayer();startupJob?.cancel();saveProgress();player.stop();player.clearMediaItems();tried.add(candidate.identity);playbackCapability060=PlaybackCapability060(display=PlaybackCapabilities060.display(getApplication()));currentCandidate=candidate;currentEpisode=candidate.episode.name;if(work.provider!="live")episodeNames=Episodes051.names(work.kind,currentEpisode,candidate,candidates,roadEpisodes051);resume=start;rendered=false;streamLoading=true;initialStart=false
         addons.bind(work,candidate.episode.name)
         PlaybackOwner.source(work,candidate)
         val baseClient=if(candidate.site.type==8)NetworkPolicy.directClient()else NetworkPolicy.client()
@@ -349,7 +390,7 @@ class PtvModel(app:Application):AndroidViewModel(app) {
     fun onExternalBackground(){if(!config.background)liveRecovery054?.cancel();qualityJob?.cancel();PlaybackOwner.foreground=false;if(config.background&&current!=null&&PlaybackOwner.serviceRunning){saveProgress(forcePublish=true);return};if(playerReleased)return;val previous=current;saveProgress(forcePublish=true);startupJob?.cancel();sourceJob?.cancel();generation++;searching=false;player.stop();player.clearMediaItems();PlaybackOwner.release(player);PlaybackOwner.stopService(getApplication<Application>());playerReleased=true;playing=false;streamLoading=false;addons.clear();current=null;currentCandidate=null;if(previous!=null){detail=previous;if(screen=="player")screen="detail"}}
     fun back(){if(screen in listOf("detail","credits")&&backBrowse055())return;screen=when(screen){"credits"->{detail=creditPage055?.owner;detail?.let(details::load);"detail"};"settings","sites"->utilityTrail.removeLastOrNull()?:"home";"player"->{detail=playbackReturnWork?:current;if(playbackReturnScreen=="detail"&&detail!=null&&details.work.value?.key!=detail?.key)details.load(detail!!);restoreFocus="$focusRow|$focusWork";playbackReturnScreen.takeUnless{it=="player"}?:"detail"};"detail"->{if(detailTrail.isNotEmpty()){val prior=detailTrail.removeAt(detailTrail.lastIndex);detail=prior;details.load(prior);return};details.cancelLoad();restoreFocus="$focusRow|$focusWork";origin.takeUnless{it=="detail"||it=="player"}?:"home"};else->"home"}}
     fun toggleMute051(){if(!muted051){unmutedVolume051=player.volume.takeIf{it>0}?:volume.takeIf{it>0}?:.75f;player.volume=0f}else player.volume=unmutedVolume051;muted051=!muted051;db.prefs.edit().putBoolean("player_muted",muted051).putFloat("unmuted_volume",unmutedVolume051).apply()}
-    fun seek051(target:Long){if(current?.provider=="live")return;if(!player.isCurrentMediaItemSeekable){val c=currentCandidate;if(c!=null&&c.mimeType=="video/x-matroska")repairSeek051(c,target)else message("此线路未提供可快进索引，请换可快进的版本");return};seekTarget051=if(player.duration>0)target.coerceIn(0,player.duration)else target.coerceAtLeast(0);resume=seekTarget051;player.seekTo(seekTarget051)}
+    fun seek051(target:Long){if(current?.provider=="live")return;if(!player.isCurrentMediaItemSeekable){val c=currentCandidate;if(c!=null&&c.mimeType=="video/x-matroska")repairSeek051(c,target)else message("此线路未提供可快进索引，请换可快进的版本");return};seekTarget051=if(player.duration>0)target.coerceIn(0,player.duration)else target.coerceAtLeast(0);resume=seekTarget051;position=seekTarget051;lastSeekAt057=android.os.SystemClock.elapsedRealtime();seekRecoveryCount057=0;runCatching{player.setSeekParameters(androidx.media3.exoplayer.SeekParameters.CLOSEST_SYNC)};player.seekTo(seekTarget051)}
     private fun repairSeek051(c:Candidate,target:Long){if(seekJob051?.isActive==true)return;val token=generation;message("正在读取此线路快进索引…");seekJob051=viewModelScope.launch{val patch=try{withContext(Dispatchers.IO){MkvSeek051.load(c)}}catch(e:CancellationException){throw e}catch(_:Exception){null};if(token!=generation||currentCandidate?.identity!=c.identity)return@launch;if(patch==null){if(!player.isCurrentMediaItemSeekable)message("此线路没有可用的快进索引，请切换其他版本");return@launch};if(seekPatches051.size>=12)seekPatches051.clear();seekPatches051[c.episode.url]=patch;seekJob051=null;seekTarget051=target.coerceAtLeast(0);select(c,seekTarget051,false)}}
     fun persistAudio(language:String){db.prefs.edit().putString("audio_${current?.key}",language).apply();player.trackSelectionParameters=player.trackSelectionParameters.buildUpon().setPreferredAudioLanguage(language).build()}
     private fun restoreAudio(){val lang=db.prefs.getString("audio_${current?.key}",db.prefs.getString("audio_${current?.legacyKey}","")).orEmpty();if(lang.isNotBlank())player.trackSelectionParameters=player.trackSelectionParameters.buildUpon().setPreferredAudioLanguage(lang).build()}

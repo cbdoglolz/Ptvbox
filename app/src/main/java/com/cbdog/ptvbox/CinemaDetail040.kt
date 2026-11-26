@@ -30,6 +30,21 @@ import kotlinx.coroutines.*
     val context=LocalContext.current;val request=remember(url,revision){ImageRequest.Builder(context).data(url).memoryCacheKey("$url|detail-$revision").diskCacheKey("$url|detail-$revision").build()}
     AsyncImage(request,label,modifier,contentScale=scale,alpha=alpha)
 }
+@Composable private fun AutoFitSingleLineTitle(text:String,color:Color,modifier:Modifier=Modifier){
+    val initial=remember(text){when{text.length<=10->36f;text.length<=16->30f;text.length<=24->24f;text.length<=34->19f;else->16f}}
+    var fontSize by remember(text){mutableFloatStateOf(initial)}
+    Text(
+        text=text,
+        color=color,
+        fontSize=fontSize.sp,
+        fontWeight=FontWeight.Bold,
+        maxLines=1,
+        softWrap=false,
+        overflow=TextOverflow.Ellipsis,
+        onTextLayout={result->if(result.hasVisualOverflow&&fontSize>12f)fontSize=(fontSize*0.88f).coerceAtLeast(12f)},
+        modifier=modifier.fillMaxWidth()
+    )
+}
 @Composable private fun DetailFavoriteAction(selected:Boolean,click:()->Unit){
     val c=LocalCinema.current
     InputButton(click,Modifier.selection051(selected),shape=ButtonDefaults.shape(RoundedCornerShape(8.dp)),colors=ptvButtonColors(c.raised,c.text),contentPadding=PaddingValues(14.dp,10.dp)){
@@ -52,14 +67,14 @@ import kotlinx.coroutines.*
     val heights=groups.map{ResourceLabels040.height(ResourceLabels040.label(it))}.filter{it>0}.distinct().sorted()
     val visible=groups.filter{resolution.isEmpty()||ResourceLabels040.height(ResourceLabels040.label(it)) in resolution}
     Box(Modifier.fillMaxSize()){
-        DetailArtwork040(w.backdrop.ifBlank{w.poster},null,artwork,Modifier.fillMaxSize().blur(7.dp),ContentScale.Crop,.78f)
+        DetailArtwork040(m.metadata.doubanHdImage(w.backdrop.ifBlank{w.poster}),null,artwork,Modifier.fillMaxSize().blur(7.dp),ContentScale.Crop,.78f)
         Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(c.background.copy(alpha=.08f),c.background.copy(alpha=.42f),c.background.copy(alpha=.84f)))))
         LazyVerticalGrid(GridCells.Adaptive(196.dp),state=state,modifier=Modifier.fillMaxSize().pagedDown051(state,related.map{"related|${it.key}"},{m.focusWork.takeIf{m.focusRow=="related"}?.let{"related|$it"}},relatedBusy,relatedMore,m.details::moreSimilar),horizontalArrangement=Arrangement.spacedBy(13.dp),verticalArrangement=Arrangement.spacedBy(18.dp),contentPadding=PaddingValues(12.dp,8.dp,12.dp,24.dp)){
             item(key="hero",span={GridItemSpan(maxLineSpan)}){Row(Modifier.fillMaxWidth().background(Color(0x5210111b),RoundedCornerShape(12.dp)).padding(22.dp),horizontalArrangement=Arrangement.spacedBy(26.dp),verticalAlignment=Alignment.CenterVertically){
                 DetailArtwork040(w.poster,w.title,artwork,Modifier.width(178.dp).height(252.dp).clip(RoundedCornerShape(10.dp)),ContentScale.Fit)
                 Column(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(12.dp)){
                     ProviderRatingRows(m,w)
-                    if(art?.logo?.isNotBlank()==true)AsyncImage(art.logo,w.title,Modifier.widthIn(max=500.dp).height(92.dp),contentScale=ContentScale.Fit)else Text(w.title,color=c.text,fontSize=36.sp,fontWeight=FontWeight.Bold,maxLines=2)
+                    if(art?.logo?.isNotBlank()==true)AsyncImage(art.logo,w.title,Modifier.widthIn(max=500.dp).height(92.dp),contentScale=ContentScale.Fit)else AutoFitSingleLineTitle(w.title,c.text)
                     if(w.overview.isNotBlank())Text(w.overview,color=c.text,fontSize=14.sp,maxLines=4,overflow=TextOverflow.Ellipsis)
                     FlowRow(horizontalArrangement=Arrangement.spacedBy(6.dp),verticalArrangement=Arrangement.spacedBy(6.dp)){w.detailFacts().forEach{fact->PcChip(DetailFact056.display(fact),false,{m.filterSearch056(w.kind,fact)})}}
                     Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(10.dp)){if(w.releaseLabel().isNotBlank())Text(w.releaseLabel(),color=PcGreen,fontSize=14.sp);if(w.isUpcoming())PendingBadge()}
@@ -93,7 +108,7 @@ import kotlinx.coroutines.*
             if(w.people.isNotEmpty())item(key="people",span={GridItemSpan(maxLineSpan)}){Column(verticalArrangement=Arrangement.spacedBy(12.dp)){PcSection("导演与演员 · 点击头像查看参与作品");LazyRow(horizontalArrangement=Arrangement.spacedBy(14.dp)){items(w.people,key={it.id.ifBlank{it.name}}){p->Column(Modifier.width(116.dp),verticalArrangement=Arrangement.spacedBy(7.dp)){InputButton({m.openCredit055(w,person=p)},Modifier.fillMaxWidth(),shape=androidx.tv.material3.ButtonDefaults.shape(RoundedCornerShape(10.dp)),contentPadding=PaddingValues(0.dp)){DetailArtwork040(p.avatar,p.name,artwork,Modifier.fillMaxWidth().height(150.dp).background(c.surface))};Text(p.name,color=c.text,fontSize=13.sp,maxLines=2);Text(p.role,color=c.muted,fontSize=11.sp,maxLines=3)}}}}}
             if(collection.isNotEmpty())item(key="collection-row",span={GridItemSpan(maxLineSpan)}){Column(verticalArrangement=Arrangement.spacedBy(12.dp)){PcSection(w.facts.collectionName.ifBlank{"同系列作品"});LazyRow(horizontalArrangement=Arrangement.spacedBy(14.dp),contentPadding=PaddingValues(4.dp)){items(collection,key={it.key}){item->Box(Modifier.width(138.dp)){CinemaPoster(m,item,"collection")}}}}}
             if(versions.isNotEmpty())item(key="versions-row",span={GridItemSpan(maxLineSpan)}){Column(verticalArrangement=Arrangement.spacedBy(12.dp)){PcSection("相关版本 · 不同年份为不同作品，请核对");LazyRow(horizontalArrangement=Arrangement.spacedBy(14.dp),contentPadding=PaddingValues(4.dp)){items(versions,key={it.key}){item->Box(Modifier.width(138.dp)){CinemaPoster(m,item,"versions")}}}}}
-            if(related.isNotEmpty())item(key="related-row",span={GridItemSpan(maxLineSpan)}){Column(Modifier.fillMaxWidth().onPreviewKeyEvent{e->val last=related.lastOrNull();if(e.key==Key.DirectionDown&&e.type==KeyEventType.KeyDown&&e.nativeKeyEvent.repeatCount==0&&m.focusRow=="related"&&m.focusWork==last?.key&&!relatedBusy&&relatedMore){m.details.moreSimilar();true}else false},verticalArrangement=Arrangement.spacedBy(10.dp)){PcSection("相似推荐","一行六部 · 最后一行继续向下加载");related.chunked(6).forEach{row->Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)){row.forEach{work->Box(Modifier.weight(1f)){CinemaPoster(m,work,"related")}};repeat(6-row.size){Spacer(Modifier.weight(1f))}}};MoreHint051(relatedBusy,relatedMore,m.details::moreSimilar)}}
+            if(related.isNotEmpty())item(key="related-row",span={GridItemSpan(maxLineSpan)}){Column(Modifier.fillMaxWidth().onPreviewKeyEvent{e->val last=related.lastOrNull();if(e.key==Key.DirectionDown&&e.type==KeyEventType.KeyDown&&e.nativeKeyEvent.repeatCount==0&&m.focusRow=="related"&&m.focusWork==last?.key&&!relatedBusy&&relatedMore){m.details.moreSimilar();true}else false},verticalArrangement=Arrangement.spacedBy(10.dp)){PcSection("相似推荐","一行五部 · 最后一行继续向下加载");related.chunked(5).forEach{row->Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(10.dp)){row.forEach{work->Box(Modifier.weight(1f)){CinemaPoster(m,work,"related")}};repeat(5-row.size){Spacer(Modifier.weight(1f))}}};MoreHint051(relatedBusy,relatedMore,m.details::moreSimilar)}}
         }
     }
     if(statusMenu)WatchPicker056("观看状态",m.user.states[w.key],{state->if(state==null)m.clearWatchState(w)else m.setWatchState(w,state);statusMenu=false},{statusMenu=false})

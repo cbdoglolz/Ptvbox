@@ -8,7 +8,7 @@ $prior=@{};foreach($name in $names){$prior[$name]=[Environment]::GetEnvironmentV
 try {
     New-Item -ItemType Directory -Force .tools,artifacts | Out-Null
     if(-not $DebugOnly -and -not $env:PTVBOX_KEYSTORE){
-        if(-not $IsWindows){throw 'Set signing environment variables before a release build on this OS'}
+        if(-not $IsWindows -and $env:OS -ne 'Windows_NT'){throw 'Set signing environment variables before a release build on this OS'}
         $store=Join-Path $root '.tools/ptvbox-release.jks'
         $secretPath=Join-Path $root '.tools/signing-password.dpapi'
         if(-not(Test-Path -LiteralPath $store)){
@@ -31,8 +31,12 @@ try {
     $extra=@();if($ArmHost){& "$PSScriptRoot/Build-ArmHost.ps1";if($LASTEXITCODE -ne 0){throw 'ARM build failed'};$extra+= '-PptvboxArmHost=true'}
     & ./gradlew.bat ':app:testDebugUnitTest' ":app:assemble$variant" --console=plain --no-configuration-cache @extra
     if($LASTEXITCODE -ne 0){throw 'Build or regression tests failed'}
-    $version=[regex]::Match((Get-Content app/build.gradle.kts -Raw),'versionName = "([0-9.]+)"').Groups[1].Value
-    $folder=Join-Path $root "artifacts/release-v$version";New-Item -ItemType Directory -Force $folder | Out-Null
+    $version=[regex]::Match((Get-Content app/build.gradle.kts -Raw),'versionName = "([0-9.]+(?:-c[0-9]+)?)"').Groups[1].Value
+    $isCandidate=$version -match '-c[0-9]+$'
+    $baseVersion=$version -replace '-c[0-9]+$',''
+    $folder=Join-Path $root (if($isCandidate){"artifacts/candidate-v$baseVersion"}else{"artifacts/release-v$version"});New-Item -ItemType Directory -Force $folder | Out-Null
+    if($isCandidate){Get-ChildItem -LiteralPath $folder -Filter '*.apk' -ErrorAction SilentlyContinue | Where-Object {$_.Name -notlike "Ptvbox-$version*"} | Remove-Item -Force -ErrorAction SilentlyContinue}
+    else{$candDir=Join-Path $root "artifacts/candidate-v$baseVersion";if(Test-Path -LiteralPath $candDir){Remove-Item -LiteralPath $candDir -Recurse -Force -ErrorAction SilentlyContinue}}
     $suffix=if($DebugOnly){'-QA'}elseif($ArmHost){'-ARM'}else{''};$file="Ptvbox-$version$suffix.apk"
     $source=if($DebugOnly){'app/build/outputs/apk/debug/app-debug.apk'}else{'app/build/outputs/apk/release/app-release.apk'}
     Copy-Item -LiteralPath $source -Destination (Join-Path $folder $file)

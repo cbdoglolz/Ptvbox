@@ -18,6 +18,7 @@ class PtvApplication:Application(),SingletonImageLoader.Factory {
         .components { add(OkHttpNetworkFetcherFactory(callFactory={NetworkPolicy.client().newBuilder().followRedirects(true).addInterceptor{chain->
             val builder=chain.request().newBuilder().header("User-Agent",NetworkPolicy.userAgent)
             if(chain.request().url.host.endsWith("doubanio.com"))builder.header("Referer","https://movie.douban.com/")
-            chain.proceed(builder.build())
+            val response=chain.proceed(builder.build())
+            response.newBuilder().removeHeader("Pragma").removeHeader("Expires").header("Cache-Control","public, max-age=31536000").build()
         }.build()})) }.build()
 }

@@ -33,18 +33,21 @@ import kotlinx.coroutines.isActive
  var restoreControl by remember{mutableStateOf("")};var panelTrail by remember{mutableStateOf<List<String>>(emptyList())}
  var heldAt by remember{mutableLongStateOf(0)};var restoreSpeed by remember{mutableStateOf<Float?>(null)}
  var seekDirection by remember{mutableIntStateOf(0)};var seekStartedAt by remember{mutableLongStateOf(0)}
+ var seekRevision by remember{mutableIntStateOf(0)};var seekHolding by remember{mutableStateOf(false)}
   var chromeFocused by remember{mutableStateOf(false)};var touchBoost by remember{mutableStateOf(false)}
  val series by m.details.series.collectAsState()
  fun closePanel(){if(panelTrail.isNotEmpty()){overlay=overlay.copy(panel=panelTrail.last());panelTrail=panelTrail.dropLast(1)}else{restoreControl=when(overlay.panel){"sources"->"播放线路";"episodes"->if(m.current?.provider=="live")"直播线路"else"选集";"audio"->"音轨";"subtitles"->"字幕";"volume"->"音量";"speed"->"倍速";"scale"->"画面比例";else->""};overlay=overlay.copy(panel="")};interaction=android.os.SystemClock.uptimeMillis()}
- fun back(){seekDirection=0;if(overlay.controls||overlay.panel.isNotBlank()||overlay.previewMs!=null){overlay=PlayerOverlay(controls=false);panelTrail=emptyList();restoreControl=""}else m.back()}
- fun commitSeek(){val target=overlay.previewMs;seekDirection=0;overlay=overlay.copy(previewMs=null,controls=false);if(target!=null)m.seek051(target)}
+ fun back(){seekDirection=0;seekHolding=false;if(overlay.controls||overlay.panel.isNotBlank()||overlay.previewMs!=null){overlay=PlayerOverlay(controls=false);panelTrail=emptyList();restoreControl=""}else m.back()}
+ fun commitSeek(){val target=overlay.previewMs;seekDirection=0;seekHolding=false;overlay=overlay.copy(previewMs=null,controls=false);if(target!=null)m.seek051(target)}
+ fun queueSeekDelta(deltaMs:Long){if(m.current?.provider=="live")return;val base=overlay.previewMs?:m.position;val max=m.duration.coerceAtLeast(0);val next=if(max>0)(base+deltaMs).coerceIn(0,max)else(base+deltaMs).coerceAtLeast(0);overlay=overlay.copy(controls=false,previewMs=next);seekRevision++}
  fun enterPip(){val a=activity?:return m.message("当前环境没有可用Activity，无法进入小窗");if(android.os.Build.VERSION.SDK_INT<26||!a.packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_PICTURE_IN_PICTURE)){m.message("当前设备或电视系统不支持系统小窗");return};val width=m.player.videoSize.width.takeIf{it>0}?:16;val height=m.player.videoSize.height.takeIf{it>0}?:9;runCatching{a.enterPictureInPictureMode(android.app.PictureInPictureParams.Builder().setAspectRatio(android.util.Rational(width,height)).build());m.message("已进入小窗播放")}.onFailure{m.message("小窗启动失败：${it.message?.take(60) ?: "系统限制"}")}}
  fun open(name:String){if(overlay.panel.isNotBlank())panelTrail=panelTrail+overlay.panel;restoreControl="";overlay=overlay.open(name);interaction=android.os.SystemClock.uptimeMillis()}
  BackHandler{back()}
  LaunchedEffect(overlay){if(BuildConfig.DEBUG)android.util.Log.d("PtvOverlay","STATE controls=${overlay.controls} panel=${overlay.panel} preview=${overlay.previewMs!=null} trail=${panelTrail.size}")}
  DisposableEffect(Unit){activity?.window?.decorView?.systemUiVisibility=View.SYSTEM_UI_FLAG_FULLSCREEN or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY;onDispose{activity?.window?.decorView?.systemUiVisibility=View.SYSTEM_UI_FLAG_VISIBLE}}
- LaunchedEffect(m.pipMode){if(m.pipMode){seekDirection=0;overlay=PlayerOverlay(controls=false);panelTrail=emptyList()}}
- LaunchedEffect(seekDirection){if(seekDirection==0)return@LaunchedEffect;while(isActive){val held=android.os.SystemClock.elapsedRealtime()-seekStartedAt;delay(SeekPolicy057.repeatDelayMs(held));if(seekDirection==0)break;val step=SeekPolicy057.stepForHeld(android.os.SystemClock.elapsedRealtime()-seekStartedAt);overlay=overlay.copy(previewMs=((overlay.previewMs?:m.position)+seekDirection*step).coerceIn(0,m.duration.coerceAtLeast(0)))}}
+ LaunchedEffect(m.pipMode){if(m.pipMode){seekDirection=0;seekHolding=false;overlay=PlayerOverlay(controls=false);panelTrail=emptyList()}}
+ LaunchedEffect(seekDirection){if(seekDirection==0)return@LaunchedEffect;delay(320);while(isActive&&seekDirection!=0){val held=android.os.SystemClock.elapsedRealtime()-seekStartedAt;delay(SeekPolicy057.repeatDelayMs(held));if(seekDirection==0)break;val step=SeekPolicy057.stepForHeld(android.os.SystemClock.elapsedRealtime()-seekStartedAt);overlay=overlay.copy(previewMs=((overlay.previewMs?:m.position)+seekDirection*step).coerceIn(0,m.duration.coerceAtLeast(0)));seekRevision++}}
+ LaunchedEffect(seekRevision,seekHolding){if(overlay.previewMs!=null&&!seekHolding){delay(SeekPolicy057.DEBOUNCE_COMMIT_MS);if(overlay.previewMs!=null&&!seekHolding)commitSeek()}}
  LaunchedEffect(overlay.controls,overlay.panel){withFrameNanos{};runCatching{if(overlay.panel.isBlank()){if(overlay.controls){if(restoreControl.isBlank())tools.requestFocus()}else root.requestFocus()}}}
  LaunchedEffect(overlay,m.playing,interaction){if(overlay.controls&&overlay.panel.isBlank()&&overlay.previewMs==null&&m.playing){delay(5000);overlay=overlay.copy(controls=false)}}
  BoxWithConstraints(Modifier.fillMaxSize().background(Color.Black).focusRequester(root).onPreviewKeyEvent{e->
@@ -56,10 +59,10 @@ import kotlinx.coroutines.isActive
    when(e.key){Key.DirectionCenter,Key.Enter->{if(down){if(m.playing)m.player.pause()else m.player.play()};true};else->false}
   }
   else if(overlay.previewMs!=null){when(e.key){
-   Key.DirectionLeft,Key.DirectionRight->{val direction=if(e.key==Key.DirectionLeft)-1 else 1;if(down&&seekDirection!=direction){seekDirection=direction;seekStartedAt=android.os.SystemClock.elapsedRealtime();overlay=overlay.copy(previewMs=((overlay.previewMs?:m.position)+direction*SeekPolicy057.INITIAL_STEP_MS).coerceIn(0,m.duration.coerceAtLeast(0)))};if(up&&seekDirection==direction)commitSeek();true}
+   Key.DirectionLeft,Key.DirectionRight->{val direction=if(e.key==Key.DirectionLeft)-1 else 1;if(down&&e.nativeKeyEvent.repeatCount==0){seekDirection=direction;seekHolding=true;seekStartedAt=android.os.SystemClock.elapsedRealtime();queueSeekDelta(direction*SeekPolicy057.INITIAL_STEP_MS)};if(up&&seekDirection==direction){seekDirection=0;seekHolding=false;seekRevision++};true}
    Key.DirectionCenter,Key.Enter->{if(up)commitSeek();true};else->false}}
   else if(!overlay.controls){when(e.key){
-   Key.DirectionLeft,Key.DirectionRight->{if(down){val direction=if(e.key==Key.DirectionLeft)-1 else 1;seekDirection=direction;seekStartedAt=android.os.SystemClock.elapsedRealtime();overlay=overlay.copy(controls=false,previewMs=(m.position+direction*SeekPolicy057.INITIAL_STEP_MS).coerceIn(0,m.duration.coerceAtLeast(0)))};true}
+   Key.DirectionLeft,Key.DirectionRight->{if(down&&e.nativeKeyEvent.repeatCount==0){val direction=if(e.key==Key.DirectionLeft)-1 else 1;seekDirection=direction;seekHolding=true;seekStartedAt=android.os.SystemClock.elapsedRealtime();queueSeekDelta(direction*SeekPolicy057.INITIAL_STEP_MS)};if(up){seekDirection=0;seekHolding=false;seekRevision++};true}
    Key.DirectionUp,Key.DirectionDown->{if(down)overlay=overlay.copy(controls=true);true}
    Key.DirectionCenter,Key.Enter->{if(down){if(e.nativeKeyEvent.repeatCount==0)heldAt=android.os.SystemClock.uptimeMillis();if(android.os.SystemClock.uptimeMillis()-heldAt>=450&&restoreSpeed==null){restoreSpeed=m.player.playbackParameters.speed;m.player.setPlaybackSpeed(2.5f)}};if(up){val old=restoreSpeed;if(old!=null){m.player.setPlaybackSpeed(old);restoreSpeed=null}else{if(m.playing)m.player.pause()else m.player.play();overlay=overlay.copy(controls=false)}};true}
    else->false
@@ -71,10 +74,10 @@ import kotlinx.coroutines.isActive
    PlayerTouchLayer060(
      m,
      onShowControls={overlay=overlay.copy(controls=true)},
-     onPreview={overlay=overlay.copy(previewMs=it)},
-     onCommit={overlay=overlay.copy(previewMs=null);if(it!=null)m.seek051(it)},
+     onPreview={seekHolding=true;overlay=overlay.copy(previewMs=it)},
+     onCommit={seekHolding=false;overlay=overlay.copy(previewMs=null);if(it!=null)m.seek051(it)},
      onToggle={if(m.playing)m.player.pause()else m.player.play()},
-     onSeek={m.seek051(it)},
+     onSeekDelta={queueSeekDelta(it)},
      onBoost={touchBoost=it}
    )
   if(overlay.controls){
@@ -89,9 +92,14 @@ import kotlinx.coroutines.isActive
      Text("已检测 ${m.checked}/${m.total} · ${m.candidates.size}条候选",color=PcAccent,fontSize=12.sp)
      if(m.searching)PcChip(if(m.pausedScan)"继续扫描"else"暂停扫描",m.pausedScan,{m.pausedScan=!m.pausedScan})
      Text(m.notice,color=Color(0xffded6ef),fontSize=12.sp,maxLines=2,modifier=Modifier.weight(1f))
-     PcChip(if(m.preference=="speed")"速度优先"else"高清优先",false,{open("preference")});PcChip(if(m.current?.provider=="live")"↻ 刷新频道"else"↻ 重新检测",false,m::refreshSources);PcChip(if(m.current?.key in m.user.favorites)"★"else"☆",false,{m.current?.let(m::toggleFavorite)})
+     PcChip(if(m.preference=="speed")"速度优先"else"高清优先",false,{open("preference")});PcChip(if(m.current?.provider=="live")"↻ 刷新频道"else"↻ 重新检测",false,m::refreshSources)
     }
-    if(!compact)Text(m.playbackCapability060.summary+(m.playbackCapability060.warning.takeIf{it.isNotBlank()}?.let{" · $it"}?:""),color=if(m.playbackCapability060.warning.isBlank())Color(0xffc5d8e8)else Color(0xffffc56e),fontSize=11.sp,maxLines=1)
+    if(!compact){
+     val subtitleText=enabledSubtitleText(m)
+     val danmakuText=if(m.config.flag("danmaku_enabled",true))"弹幕 ON ${m.addons.danmaku.size}"else"弹幕 OFF"
+     val infoLine=listOf(m.playbackCapability060.compactSummary,subtitleText,danmakuText,m.playbackCapability060.warning).filter{it.isNotBlank()}.joinToString(" · ")
+     Text(infoLine,color=if(m.playbackCapability060.warning.isBlank())Color(0xffc5d8e8)else Color(0xffffc56e),fontSize=11.sp,maxLines=1)
+    }
    }
    Box(Modifier.align(Alignment.BottomCenter)){PlaybackChrome(m,{open(it)},{overlay=overlay.copy(controls=false)},::enterPip,Modifier.focusRequester(tools),restoreControl,{m.lastRestoredControl=restoreControl;restoreControl=""},{chromeFocused=it})}
    }else{
@@ -100,7 +108,7 @@ import kotlinx.coroutines.isActive
   SubtitleBadge053(m,Modifier.align(Alignment.TopEnd).padding(top=if(overlay.controls)if(compact)62.dp else 110.dp else 12.dp,end=18.dp))
   if(m.streamLoading)Text("连接 / 缓冲中…",color=Color.White,modifier=Modifier.align(Alignment.Center).background(Color(0xbb11111b),RoundedCornerShape(8.dp)).padding(16.dp))
   if(m.current!=null&&m.current?.provider!="live"&&m.duration>0&&!m.playing&&!m.streamLoading&&overlay.previewMs==null)Column(Modifier.align(Alignment.Center).background(Color(0xb312111b),RoundedCornerShape(10.dp)).padding(18.dp),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(5.dp)){Text("已暂停",color=Color.White,fontSize=16.sp);Text("${clock(m.position)} / ${clock(m.duration)}",color=PcAccent,fontSize=22.sp)}
-  overlay.previewMs?.let{time->Column(Modifier.align(Alignment.Center).background(Color(0xdd151321),RoundedCornerShape(12.dp)).padding(24.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){Text("${clock(time)} / ${clock(m.duration)}",color=Color.White,fontSize=30.sp);Text("松开确认跳转 · 返回取消",color=PcAccent,fontSize=13.sp)}}
+  overlay.previewMs?.let{time->val deltaSec=(time-m.position)/1000L;val deltaText=if(deltaSec>=0)"+${deltaSec}秒"else"${deltaSec}秒";Column(Modifier.align(Alignment.Center).background(Color(0xdd151321),RoundedCornerShape(12.dp)).padding(24.dp),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(8.dp)){Text("${clock(time)} / ${clock(m.duration)}",color=Color.White,fontSize=30.sp);Text("$deltaText · 停顿自动跳转 · 确认立刻跳 · 返回取消",color=PcAccent,fontSize=13.sp)}}
   restoreSpeed?.let{Text("临时 2.5×",color=Color.White,modifier=Modifier.align(Alignment.Center).background(Color(0xaa11111b)).padding(14.dp))}
    if(touchBoost)Text("长按 2× 播放",color=Color.White,modifier=Modifier.align(Alignment.Center).background(Color(0xaa11111b)).padding(14.dp))
  }
@@ -119,8 +127,9 @@ internal object PlayerTouch060 {
     onPreview:(Long)->Unit,
     onCommit:(Long?)->Unit,
     onToggle:()->Unit,
-    onSeek:(Long)->Unit,
-    onBoost:(Boolean)->Unit
+    onSeek:((Long)->Unit)?=null,
+    onBoost:(Boolean)->Unit,
+    onSeekDelta:((Long)->Unit)?=null
 ){
     var originalSpeed by remember{mutableStateOf(1f)}
     var boosting by remember{mutableStateOf(false)}
@@ -137,8 +146,8 @@ internal object PlayerTouch060 {
                     onTap={onShowControls()},
                     onDoubleTap={offset->
                         when(PlayerTouch060.zone(offset.x,size.width.toFloat())){
-                            "left"->if(m.current?.provider!="live")onSeek((m.player.currentPosition-PlayerTouch060.SEEK_STEP_MS).coerceAtLeast(0))
-                            "right"->if(m.current?.provider!="live")onSeek((m.player.currentPosition+PlayerTouch060.SEEK_STEP_MS).coerceAtMost(m.player.duration.coerceAtLeast(0)))
+                            "left"->if(m.current?.provider!="live"){onSeekDelta?.invoke(-PlayerTouch060.SEEK_STEP_MS)?:onSeek?.invoke((m.player.currentPosition-PlayerTouch060.SEEK_STEP_MS).coerceAtLeast(0))}
+                            "right"->if(m.current?.provider!="live"){onSeekDelta?.invoke(PlayerTouch060.SEEK_STEP_MS)?:onSeek?.invoke((m.player.currentPosition+PlayerTouch060.SEEK_STEP_MS).coerceAtMost(m.player.duration.coerceAtLeast(0)))}
                             else->onToggle()
                         }
                     },

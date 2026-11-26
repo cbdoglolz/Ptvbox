@@ -30,8 +30,8 @@ class EpisodeCatalogRepository(private val sites:Sites,private val db:Library){
             val found=gate.withPermit{
                 try{withTimeout(12000){
                     var hits=if(site.type==8)listOf(Stremio050.lookup(site,work,if(work.kind=="tv")"第01集"else"正片",Metadata(db)))else sites.search(site,work.title)
-                    if(site.type!=8&&hits.none{Identity.matches(work,it)})for(alias in (listOf(work.original)+work.aliases).filter{it.isNotBlank()&&it!=work.title}.take(2))hits=hits+sites.search(site,alias)
-                    hits.filter{Identity.matches(work,it)}.distinctBy{it.id}.take(3).flatMap{row->val vod=sites.detail(site,row);vod.roads.map{road->CatalogGroup("${site.key}|${vod.id}|${road.name}",site,vod.title,road)}}
+                    if(site.type!=8&&hits.none{Identity.matches(work,it)})for(alias in Identity.searchQueries(work).filter{it!=work.title}.take(3))if(hits.none{Identity.matches(work,it)})hits=hits+sites.search(site,alias)
+                    hits.filter{Identity.matches(work,it)}.distinctBy{it.id}.sortedByDescending{Identity.matchScore(work,it)}.take(3).flatMap{row->val vod=sites.detail(site,row);vod.roads.map{road->CatalogGroup("${site.key}|${vod.id}|${road.name}",site,vod.title,road)}}
                 }}catch(e:TimeoutCancellationException){failed++;emptyList()}catch(e:CancellationException){throw e}catch(e:Exception){failed++;emptyList()}
             }
             // Aggregate on the flow's single dispatcher, never on a rendering callback.

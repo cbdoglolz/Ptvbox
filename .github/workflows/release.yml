@@ -59,12 +59,12 @@ jobs:
           test -f "dist/Ptvbox-$version.apk"
           test -f "dist/Ptvbox-$version-ARM.apk"
           ! find dist -maxdepth 1 -type f ! -name '*.apk' | grep -q .
-      - name: Create draft GitHub Release
+      - name: Create public GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           name: Ptvbox ${{ steps.version.outputs.value }}
           body: Ptvbox ${{ steps.version.outputs.value }}
-          draft: true
+          draft: false
           prerelease: false
           files: dist/*.apk
       - name: Notify WeCom when configured

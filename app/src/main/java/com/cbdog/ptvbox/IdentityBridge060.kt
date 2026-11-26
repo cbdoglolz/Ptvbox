@@ -57,6 +57,24 @@ internal suspend fun Metadata.resolveIdentity060(work:Work):Work{
             }
         }
     }
+    val isAnime=work.provider=="anilist"||work.genres.any{Regex("动画|动漫|anime|animation",RegexOption.IGNORE_CASE).containsMatchIn(it)}
+    if(isAnime&&facts.bangumiId.isBlank())runCatching{
+        val q=Identity.searchTitle(work.title).ifBlank{work.title}
+        val body=JSONObject().put("keyword",q).put("filter",JSONObject().put("type",JSONArray(listOf(2))))
+        val raw=Net.postJson("https://api.bgm.tv/v0/search/subjects?limit=8&offset=0",body.toString())
+        val items=JSONObject(raw).optJSONArray("data")?.objects().orEmpty()
+        val match=items.firstOrNull{b->
+            val dateYear=b.optString("date").take(4)
+            val yearOk=work.year.length!=4||dateYear.length!=4||dateYear==work.year||Identity.isNianfan(work)
+            val bNames=listOf(b.optString("name"),b.optString("name_cn")).filter{it.isNotBlank()}
+            yearOk&&bNames.any{Identity.base(it)==Identity.base(work.title)||Identity.normalize(Identity.seriesCore(it))==Identity.normalize(Identity.seriesCore(work.title))}
+        }
+        if(match!=null){
+            facts=IdentityBridge060.bangumiFacts(work.copy(facts=facts),match.optString("id"),match.optJSONArray("infobox"))
+            val extra=listOf(match.optString("name_cn"),match.optString("name"))+(match.optJSONArray("infobox")?.objects().orEmpty().filter{it.optString("key") in listOf("中文名","别名","简体中文名","繁体中文名")}.flatMap{row->when(val v=row.opt("value")){is String->listOf(v);is JSONArray->(0 until v.length()).map{v.optJSONObject(it)?.optString("v")?:v.optString(it)};else->emptyList()}})
+            aliases=(aliases+extra).filter{it.isNotBlank()}.distinct().toMutableList()
+        }
+    }
     return work.copy(facts=facts,aliases=aliases)
 }
 
