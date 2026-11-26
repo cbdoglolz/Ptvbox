@@ -1,7 +1,7 @@
 plugins { id("com.android.application"); id("org.jetbrains.kotlin.plugin.compose") }
 android {
     namespace = "com.cbdog.ptvbox"
-    compileSdk = 37
+    compileSdk = 36
     defaultConfig {
         applicationId = "com.cbdog.ptvbox"
         minSdk = 26
