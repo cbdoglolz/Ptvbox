@@ -59,11 +59,13 @@
 ## 安装包
 
 - [Ptvbox-1.0.0-ARM.apk](../../artifacts/release-v1.0.0/Ptvbox-1.0.0-ARM.apk)  
-  SHA-256：`ccae7d95baffbac6460cb67895a87b8a414c49eb9f15d1ec959cecbe2e289d17`
+  GitHub下载SHA-256：`4a5bc7a3c290877dfd48706d2fe1fb19e28df51ed26482379b922d2fdd232bbb`
 - [Ptvbox-1.0.0.apk](../../artifacts/release-v1.0.0/Ptvbox-1.0.0.apk)  
-  SHA-256：`b0ce8ebc9d97d508089c1c9b2cdfaa82afc4292f425af83afa4d5fcc66e011af`
+  GitHub下载SHA-256：`7efb1e4553323ba4581d264400fd69c0988392429ddd05db3f48113a1687c60c`
 
 两个APK均使用原签名证书`33d71fe4cf85185651c1e254a2e62000cd7b348d5e50a45ff1b8dfa6656e1208`，可覆盖安装，不需要清数据。包内不含QA类、私人地址、凭据、数据库、Keystore或用户插件。
+
+GitHub Actions发布运行成功，Release保留为草稿，所有者可在GitHub的Releases页面下载；Release附件只有上述两个APK，没有日志、测试报告、截图或源码归档。
 
 ## 物理设备与未完成边界
 
