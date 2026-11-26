@@ -22,7 +22,7 @@ Each component is a single digit from `0` through `9`. Carry to the next compone
 ## Required release steps
 
 1. Update `versionName` and increment `versionCode` in `app/build.gradle.kts`.
-2. Update the report and requirement checklist.
+2. Update the report, requirement checklist and `PROJECT-CONTINUITY.md`.
 3. Run the JVM tests, build universal and ARM APKs, verify the original signing certificate, and audit the package contents.
 4. Commit the source and push `main`.
 5. Create an annotated tag exactly matching `vVERSION`, for example `v1.0.0`, and push the tag.

@@ -1,3 +1,10 @@
+# Project continuity gate
+
+- Before starting development, read `C:\Users\cbdog\.codex\PROJECT-CONTINUITY.md` and `D:\Ptvbox\PROJECT-CONTINUITY.md` completely.
+- Check `Revision`, `Last updated`, `git status`, recent commits and the latest release before editing. Treat changes by other people as user work until proven otherwise.
+- Update `PROJECT-CONTINUITY.md` after every meaningful session and before finishing every version, including implementation state, tests, release evidence, blockers and the exact next resume point.
+- Never rely on chat history alone when it conflicts with the project continuity file, source, tests or deployed state.
+
 # TV delivery rules
 
 - Future automatic builds/releases must integrate the owner's WeCom channel through WECHAT_WEBHOOK_URL stored as an Actions secret.
