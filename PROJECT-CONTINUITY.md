@@ -38,6 +38,9 @@ Ptvbox是PCBOX功能集的Android客户端。目前交付物是支持遥控器�
 | 分支 | `main` |
 | 远程 | `https://github.com/cbdoglolz/Ptvbox.git` |
 | 标签 | `v1.0.0` |
+| v1.0.0构建源码提交 | `a77162f` |
+| Release附件核验提交 | `92853f1` |
+| 连续性规范首个提交 | `d04fcd0` |
 | GitHub Actions | `Ptvbox release`成功 |
 | GitHub Release | 草稿，名称/正文均为`Ptvbox 1.0.0` |
 | Release附件 | 通用APK、ARM APK，共2个文件 |
