@@ -1,0 +1,27 @@
+package com.cbdog.ptvbox
+
+import org.junit.Test
+import org.junit.Assert.*
+import org.json.JSONArray
+import org.json.JSONObject
+import java.security.KeyPairGenerator
+import java.security.Signature
+import java.util.Base64
+
+class Version040Test {
+    @Test fun oldJsonKeepsIdentityAndDefaults(){val work=Work.from(JSONObject("""{"id":"1","title":"旧记录","identityKey":"old:1"}"""));assertEquals("old:1",work.key);assertTrue(work.facts.companies.isEmpty());assertEquals(work,Work.from(work.json()))}
+    @Test fun enrichmentDoesNotReplaceLocalIdentityOrSeason(){val old=Work("db1","原片名","tv",season=3,identityKey="uuid:local");val extra=Work("1396","英文片名","tv",provider="tmdb",season=1,people=listOf(PersonCredit("p","人","角色","https://example.org/photo","tmdb")),facts=WorkFacts(runtime=40,companies=listOf(CompanyCredit("c","公司")),provider="tmdb"));val result=old.enriched(extra);assertEquals(old.key,result.key);assertEquals(3,result.season);assertEquals("db1",result.id);assertEquals("tmdb",result.people.single().provider);assertEquals(40,Work.from(result.json()).facts.runtime)}
+    @Test fun profilesBoundLowRamAndUserPerformanceChoice(){val low=TvBudget.resolve("auto",true,128);val high=TvBudget.resolve("performance",true,128);assertEquals(6,low.parallel);assertTrue(low.bufferMb<high.bufferMb);assertEquals(20,high.parallel);assertEquals(128,low.imageMb)}
+    @Test fun passwordBackupIsPortableAndTamperEvident(){val bytes="private config and history".toByteArray();val password="only-test-password".toCharArray();val protected=BackupCipher.encrypt(bytes,password);assertFalse(protected.toString(Charsets.UTF_8).contains("private config"));assertArrayEquals(bytes,BackupCipher.decrypt(protected,password));protected[protected.lastIndex]=(protected.last().toInt() xor 1).toByte();assertTrue(runCatching{BackupCipher.decrypt(protected,password)}.isFailure)}
+    @Test fun wrongBackupPasswordAndForeignBytesAreRejected(){val value=BackupCipher.encrypt("test".toByteArray(),"password1".toCharArray());assertTrue(runCatching{BackupCipher.decrypt(value,"password2".toCharArray())}.isFailure);assertTrue(runCatching{BackupCipher.decrypt(ByteArray(20),"password1".toCharArray())}.isFailure)}
+    @Test fun subscriptionDiffIgnoresObjectOrderButPreservesChanges(){val old="""{"sites":[{"key":"s","name":"甲","api":"https://example.org/a","type":1}]}""";val reorder="""{"sites":[{"api":"https://example.org/a","type":1,"name":"甲","key":"s"}]}""";assertFalse(SubscriptionPreview.compare(old,reorder).changedAnything);val newer="""{"sites":[{"key":"s","name":"甲","api":"https://example.org/b","type":1},{"key":"t","name":"乙","api":"https://example.org/c"}]}""";val diff=SubscriptionPreview.compare(old,newer);assertEquals(listOf("甲"),diff.changed);assertEquals(listOf("乙"),diff.added);assertTrue(diff.removed.isEmpty());assertEquals(old,diff.previous)}
+    @Test fun invalidSubscriptionCannotReplaceCurrent(){assertTrue(runCatching{SubscriptionPreview.compare("{}","""{"sites":[{"key":"s"}]}""")}.isFailure)}
+    @Test fun cloudSignatureAndPathBoundariesAreVerified(){val key=KeyPairGenerator.getInstance("RSA").apply{initialize(2048)}.generateKeyPair();val pem="-----BEGIN PUBLIC KEY-----\n"+Base64.getEncoder().encodeToString(key.public.encoded)+"\n-----END PUBLIC KEY-----"
+        fun raw(path:String)=JSONObject().put("schema",1).put("revision","a".repeat(64)).put("minClient","1.1.4").put("files",JSONArray().put(JSONObject().put("path",path).put("sha256","b".repeat(64)).put("size",10))).put("components",JSONArray()).toString().toByteArray()
+        fun sign(bytes:ByteArray)=Base64.getEncoder().encodeToString(Signature.getInstance("SHA256withRSA").run{initSign(key.private);update(bytes);sign()})
+        val good=raw("anime-rules/index.json");assertEquals("a".repeat(64),SignedMaintenance.verify(good,sign(good),pem).revision);assertTrue(runCatching{SignedMaintenance.verify(raw("../../other"),sign(raw("../../other")),pem)}.isFailure);assertTrue(runCatching{SignedMaintenance.verify(good+byteArrayOf(0),sign(good),pem)}.isFailure)}
+    @Test fun resumeNeverSilentlyAcceptsKnownDowngrade(){assertFalse(ResumePolicy040.eligible(1080,720));assertTrue(ResumePolicy040.eligible(1080,0));assertFalse(ResumePolicy040.decodedAccepts(1080,720,true));assertTrue(ResumePolicy040.decodedAccepts(1080,720,false));assertTrue(ResumePolicy040.decodedAccepts(1080,2160,true))}
+    @Test fun resourceSizeAndTagsDoNotInventUnknownValues(){assertEquals(0,ResourceLabels040.bytes("第39集"));assertEquals(2L*1024*1024*1024,ResourceLabels040.bytes("1080p [2 GB]"));assertEquals(2160,ResourceLabels040.height("2160P HDR10 Dolby Vision Atmos"));assertEquals(3,ResourceLabels040.tags("2160P HDR10 Dolby Vision Atmos").size);assertEquals(0,ResourceLabels040.height("超清"))}
+    @Test fun proxyRejectsCredentialsAndUnsupportedSchemes(){assertNotNull(NetworkPolicy.validateProxy("http://127.0.0.1:7890"));assertTrue(runCatching{NetworkPolicy.validateProxy("http://secret:password@example.org:8080")}.isFailure);assertTrue(runCatching{NetworkPolicy.validateProxy("file:///tmp/proxy")}.isFailure)}
+    @Test fun selectedSeasonRetainsOriginalCatalogSeasonAndSeparatesRatingView(){val first=Work("series","第一季","tv",season=1);val second=first.copy(season=2);assertEquals(first.key,second.key);assertNotEquals(first.ratingViewKey,second.ratingViewKey);assertEquals(1,Work.from(second.json()).catalogSeason);assertEquals(2,Work.from(second.json()).season);val old=Work.from(JSONObject("""{"id":"old","title":"旧第二季","kind":"tv","season":2}"""));assertEquals(2,old.catalogSeason)}
+}

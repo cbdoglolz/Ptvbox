@@ -1,0 +1,47 @@
+package com.cbdog.ptvbox
+
+import android.app.ActivityManager
+import android.content.Context
+import android.content.SharedPreferences
+
+/** Android policy behind the PC-style settings; no credentials live in these preferences. */
+data class TvBudget(val name:String,val parallel:Int,val imageMb:Int,val bufferMb:Int,val imageFraction:Double){
+    companion object {
+        fun resolve(choice:String,lowRam:Boolean,memoryClass:Int):TvBudget = when {
+            choice=="economy" || choice=="auto"&&(lowRam||memoryClass<=192)->TvBudget("轻量",6,128,24,.06)
+            choice=="performance"->TvBudget("高性能",20,512,96,.14)
+            else->TvBudget("均衡",12,256,48,.10)
+        }
+    }
+}
+class TvPreferences(val context:Context){
+    val prefs:SharedPreferences=context.getSharedPreferences("preferences",Context.MODE_PRIVATE)
+    val budget:TvBudget get(){val am=context.getSystemService(ActivityManager::class.java);return TvBudget.resolve(text("device_profile","auto"),am.isLowRamDevice,am.memoryClass)}
+    fun text(key:String,default:String="")=runCatching{prefs.getString(key,default)?:default}.getOrDefault(default)
+    fun flag(key:String,default:Boolean=false)=runCatching{prefs.getBoolean(key,default)}.getOrDefault(default)
+    fun number(key:String,default:Int)=runCatching{prefs.getInt(key,default)}.getOrDefault(default)
+    fun set(key:String,value:String){prefs.edit().putString(key,value).apply()}
+    fun set(key:String,value:Boolean){prefs.edit().putBoolean(key,value).apply()}
+    fun set(key:String,value:Int){prefs.edit().putInt(key,value).apply()}
+    val parallel get()=number("search_parallel",budget.parallel).coerceIn(1,20)
+    val imageMb get()=number("image_cache_mb",budget.imageMb).coerceIn(64,1024)
+    val timeout get()=number("site_timeout",15).coerceIn(5,60)
+    val startupSeconds get()=number("startup_timeout",30).coerceIn(5,60)
+    val speed get()=1f
+    val background get()=flag("background_playback")
+    val incognito get()=flag("incognito")
+    fun groupPriority(group:String)=number("priority_$group",if(group=="私人订阅")0 else if(group=="默认点播")1 else 2)
+    fun sorted(sites:List<Site>)=sites.sortedBy{groupPriority(it.group)}
+}
+
+data class SettingSection(val id:String,val title:String)
+object SettingsInventory {
+    val sections=listOf(SettingSection("remote","手机扫码局域网"),
+        SettingSection("metadata","影视资料"),
+        SettingSection("interface","界面"),SettingSection("configuration","点播与直播配置"),
+        SettingSection("playback","播放与自动选源"),SettingSection("subtitles","字幕服务"),
+        SettingSection("danmaku","弹幕"),
+        SettingSection("network","网络与缓存"),SettingSection("about","关于 Ptvbox"))
+    val portalSections=sections+SettingSection("sites","站点与云端源维护")
+    val serviceSecrets=listOf("subdl","assrt","opensub_key","opensub_user","opensub_password","danmaku_appid","danmaku_secret","danmaku_url","source_update_token")
+}

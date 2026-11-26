@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="zh">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ptvbox · 局域网配置</title>
+<style>
+body{background:#171729;color:#eee;font:16px system-ui;max-width:900px;margin:auto;padding:18px}
+input,select,button{box-sizing:border-box;width:100%;padding:12px;border:1px solid #736690;border-radius:8px;background:#28263d;color:inherit;margin:7px 0}
+button{background:#6744ad;cursor:pointer}.secondary{background:#302e49}.danger{background:#7c3046}
+.bar{position:sticky;top:0;background:#171729;padding:8px 0;z-index:2}small{display:block;color:#aaa}.saved{color:#66df9c;word-break:break-all}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px}.card{padding:12px;border:1px solid #49445f;border-radius:10px;background:#232137}
+.card h3{font-size:16px;margin:0 0 6px}.card p{margin:4px 0 10px;word-break:break-all;color:#bbb}.card button{margin:0}
+dialog{width:min(620px,92vw);max-height:88vh;overflow:auto;border:1px solid #736690;border-radius:12px;background:#242238;color:#eee;padding:18px}
+.row{display:flex;gap:8px;flex-wrap:wrap}.row button{width:auto;min-width:90px}.history{padding:8px;border-radius:8px;background:#1b1a2c;margin:6px 0;word-break:break-all}
+#status{color:#ba9cf5;white-space:pre-wrap;margin:8px 0}a{color:#ba9cf5}
+details{margin:14px 0;padding:10px;border:1px solid #49445f;border-radius:10px}
+</style>
+<h2>手机扫码局域网</h2>
+<p>与电视配置同步。所有修改在弹窗内保存或删除；关闭二维码后会话结束。</p>
+<div class="bar"><select id="page"></select><p id="status" role="status"></p></div>
+<div id="free"></div>
+<div id="fields" class="cards"></div>
+<dialog id="editor">
+  <h3 id="editTitle"></h3>
+  <p id="editNote"></p>
+  <div id="editBody"></div>
+  <div class="row"><button id="copy">复制</button><button id="test" class="secondary">测试</button></div>
+  <div id="historyBox"></div>
+  <div class="row"><button id="save">保存</button><button id="delete" class="danger">删除当前</button><button id="cancel" class="secondary">取消</button></div>
+</dialog>
+<details><summary>搜索与播放控制</summary><input id="query" placeholder="输入片名"><div class="row"><button id="search">在电视搜索</button><button id="toggle">播放 / 暂停</button><button id="stop">停止播放</button></div></details>
+<script>
+const parts=location.hash.slice(1).split('&'),token=parts.shift(),selected=new URLSearchParams(parts.join('&')).get('page');
+history.replaceState(null,'',location.pathname);
+const pageEl=document.getElementById('page'),area=document.getElementById('fields'),free=document.getElementById('free'),status=document.getElementById('status');
+const dialog=document.getElementById('editor'),editBody=document.getElementById('editBody'),historyBox=document.getElementById('historyBox');
+let state,dirty=false,busy=false,current=null;
+const names={true:'已开启',false:'已关闭',douban:'豆瓣',tmdb:'TMDB',sites:'站点切换',groups:'分组纵览',speed:'速度优先',quality:'高清优先',auto:'自动',economy:'轻量',balanced:'均衡',performance:'高性能','sans-serif':'系统黑体',serif:'衬线',monospace:'等宽','#FFFFFF':'白色','#FFF176':'黄色','#80DEEA':'青色','#A5D6A7':'绿色'};
+async function call(path,body){const r=await fetch(path,{method:body?'POST':'GET',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:body?JSON.stringify(body):undefined,cache:'no-store'});if(!r.ok)throw Error('会话失效，请重新扫码');return r.json()}
+function field(){return state.fields.find(f=>f.id===current.id)}
+function note(f){if(f.id==='tmdb')return '保存后明文显示，可测试、复制或删除历史Key。';if(f.section==='subtitles'||f.section==='danmaku')return '配置只在点击配置时输入；保存与删除都在弹窗内完成。';return '保存后这里显示实际内容；没有内容时显示“配置”。'}
+function showDialog(f){current=f;document.getElementById('editTitle').textContent=f.title;document.getElementById('editNote').textContent=note(f);editBody.replaceChildren();let input;
+  document.getElementById('test').style.display=f.id==='tmdb'?'inline-block':'none';
+  if(f.kind==='bool'||f.choices.length){input=document.createElement('select');for(const v of f.kind==='bool'?['true','false']:f.choices){const o=document.createElement('option');o.value=v;o.textContent=f.kind==='bool'?names[v]:(f.id==='resize_choice'?['自适应','拉伸','裁切'][Number(v)]:(names[v]||v));input.append(o)}input.value=f.value} 
+  else{input=document.createElement('input');input.autocomplete='off';input.spellcheck=false;input.value=f.value;input.placeholder='输入新内容'}
+  input.id='editValue';editBody.append(input);
+  const h=(f.id==='tmdb'&&state.tmdbHistory)||[];historyBox.replaceChildren();if(h.length){const title=document.createElement('strong');title.textContent='历史记录';historyBox.append(title);for(const old of h){const row=document.createElement('div');row.className='history';row.textContent=old;const use=document.createElement('button');use.textContent='使用';use.onclick=()=>input.value=old;const del=document.createElement('button');del.textContent='删除';del.className='danger';del.onclick=async()=>{await call('/api/config',{command:'delete_tmdb_history',historyKey:old});await refresh(true)};row.append(document.createElement('br'),use,del);historyBox.append(row)}}
+  dialog.showModal()}
+function render(){area.replaceChildren();free.replaceChildren();
+  if(pageEl.value==='subtitles'){const p=document.createElement('div');p.className='card';p.innerHTML='<h3>免费公共字幕 · 无需Key</h3><p class="saved">OpenSubtitles V3 公共聚合优先置顶</p>';free.append(p)}
+  if(pageEl.value==='danmaku'){const p=document.createElement('div');p.className='card';p.innerHTML='<h3>免费公共弹幕 · 无需配置</h3><p class="saved">公共兼容服务<br>B站公开弹幕自动回退</p>';free.append(p)}
+  for(const f of state.fields.filter(f=>f.section===pageEl.value)){const card=document.createElement('div');card.className='card';const h=document.createElement('h3');h.textContent=f.title;const p=document.createElement('p');p.className=f.value?'saved':'';p.textContent=f.value?('✓ 已配置 · '+f.value):'配置';const button=document.createElement('button');button.textContent='配置';button.onclick=()=>showDialog(f);card.append(h,p,button);area.append(card)}
+  if(!area.children.length&&!free.children.length){const p=document.createElement('p');p.textContent='此分类没有配置项。';area.append(p)}}
+async function refresh(initial=false){const next=await call('/api/status');state=next;if(initial){for(const p of state.pages){const o=document.createElement('option');o.value=p.id;o.textContent=p.title;pageEl.append(o)}if(selected&&state.pages.some(p=>p.id===selected))pageEl.value=selected}render()}
+pageEl.onchange=()=>render();
+document.getElementById('copy').onclick=async()=>{const v=document.getElementById('editValue')?.value||field()?.value||'';if(v){try{await navigator.clipboard.writeText(v)}catch{document.getElementById('editValue')?.select();document.execCommand('copy')}status.textContent='已复制'}};
+document.getElementById('test').onclick=async()=>{const v=document.getElementById('editValue')?.value||field()?.value||'';try{const r=await call('/api/config',{command:'test_tmdb',testKey:v});status.textContent=r.message}catch(e){status.textContent=e.message}};
+document.getElementById('save').onclick=async()=>{const input=document.getElementById('editValue');if(!input||!input.value.trim()){status.textContent='输入为空，未覆盖现有配置';return}try{const r=await call('/api/config',{fields:{[current.id]:input.value.trim()}});dialog.close();await refresh(true);status.textContent=r.message}catch(e){status.textContent=e.message}};
+document.getElementById('delete').onclick=async()=>{try{const r=await call('/api/config',{deletes:[current.id]});dialog.close();await refresh(true);status.textContent=r.message}catch(e){status.textContent=e.message}};
+document.getElementById('cancel').onclick=()=>dialog.close();refresh(true).catch(e=>status.textContent=e.message);
+setInterval(()=>{if(!busy&&!dialog.open)refresh().catch(e=>status.textContent=e.message)},3000);
+for(const command of ['search','toggle','stop'])document.getElementById(command).onclick=async()=>{try{const r=await call('/api/config',{command,query:document.getElementById('query').value});status.textContent=r.message}catch(e){status.textContent=e.message}};
+const backupBox=document.createElement('details');backupBox.innerHTML='<summary>数据导入与导出 · PTVBOX-XFER</summary><p>文件包含凭据、订阅、收藏、状态和进度，请只保存在可信设备。</p><button id="backupExport">导出迁移文件</button><input id="backupFile" type="file" accept=".json,application/json,text/plain"><button id="backupPreview">预览文件</button><label><input style="width:auto" id="backupReplace" type="checkbox">以备份替换已有设置和凭据</label><button id="backupImport" disabled>确认合并导入</button><p id="backupStatus" style="white-space:pre-wrap;color:#ba9cf5"></p>';document.getElementById('fields').before(backupBox);
+let backupTicket='';const backupStatus=document.getElementById('backupStatus'),fileInput=document.getElementById('backupFile'),importButton=document.getElementById('backupImport');
+async function backupRequest(body){const r=await call('/api/backup',body);if(r.error)throw Error(r.message);return r}
+async function backupRun(work){for(const id of ['backupExport','backupPreview','backupImport'])document.getElementById(id).disabled=true;backupStatus.textContent='正在处理迁移文件…';try{await work()}catch(e){backupStatus.textContent=e.message}finally{document.getElementById('backupExport').disabled=false;document.getElementById('backupPreview').disabled=false;importButton.disabled=!backupTicket}}
+document.getElementById('backupExport').onclick=()=>backupRun(async()=>{const r=await backupRequest({action:'export'}),raw=atob(r.data),bytes=new Uint8Array(raw.length);for(let i=0;i<raw.length;i++)bytes[i]=raw.charCodeAt(i);const address=URL.createObjectURL(new Blob([bytes],{type:'application/json'})),a=document.createElement('a');a.href=address;a.download=r.file;a.click();setTimeout(()=>URL.revokeObjectURL(address),30000);backupStatus.textContent=r.message});
+document.getElementById('backupPreview').onclick=()=>backupRun(async()=>{backupTicket='';const file=fileInput.files[0];if(!file||file.size>21000000)throw Error('请选择不超过21MB的PTVBOX-XFER文件');const bytes=new Uint8Array(await file.arrayBuffer());let raw='';for(let i=0;i<bytes.length;i+=8192)raw+=String.fromCharCode(...bytes.subarray(i,i+8192));const r=await backupRequest({action:'preview',data:btoa(raw)});backupTicket=r.ticket;backupStatus.textContent=r.message});
+importButton.onclick=()=>backupRun(async()=>{if(!confirm('确认合并此备份？'))return;const r=await backupRequest({action:'import',ticket:backupTicket,confirmed:true,replaceConfiguration:document.getElementById('backupReplace').checked});backupTicket='';fileInput.value='';await refresh(true);backupStatus.textContent=r.message});
+</script>
+</html>

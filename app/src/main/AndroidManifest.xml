@@ -1,0 +1,32 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+    <uses-permission android:name="com.android.providers.tv.permission.WRITE_EPG_DATA"/>
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"/>
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES"/>
+    <uses-feature android:name="android.hardware.touchscreen" android:required="false"/>
+    <uses-feature android:name="android.software.leanback" android:required="false"/>
+    <queries><intent><action android:name="android.speech.action.RECOGNIZE_SPEECH"/></intent></queries>
+    <application android:name=".PtvApplication" android:label="Ptvbox" android:icon="@drawable/brand" android:banner="@drawable/tv_banner" android:allowBackup="false" android:usesCleartextTraffic="true" android:theme="@style/AppTheme">
+        <provider android:name=".HomeArtworkProvider" android:authorities="${applicationId}.homeart" android:exported="true"/>
+        <provider android:name="androidx.core.content.FileProvider" android:authorities="${applicationId}.updates" android:exported="false" android:grantUriPermissions="true">
+            <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/update_paths"/>
+        </provider>
+        <service android:name=".HomeSyncJob" android:exported="true" android:permission="android.permission.BIND_JOB_SERVICE"/>
+        <service android:name=".SpiderService" android:exported="false" android:process=":spider"/>
+        <activity android:name=".PluginAuthActivity054" android:exported="false" android:process=":spider" android:excludeFromRecents="true" android:theme="@style/AuthTheme054" android:screenOrientation="landscape"/>
+        <service android:name=".PlaybackSessionService" android:exported="false" android:foregroundServiceType="mediaPlayback">
+            <intent-filter><action android:name="androidx.media3.session.MediaSessionService"/></intent-filter>
+        </service>
+        <receiver android:name=".HomeProgramReceiver" android:exported="true">
+            <intent-filter><action android:name="android.media.tv.action.WATCH_NEXT_PROGRAM_BROWSABLE_DISABLED"/></intent-filter>
+        </receiver>
+        <activity android:name=".MainActivity" android:exported="true" android:launchMode="singleTask" android:screenOrientation="landscape" android:supportsPictureInPicture="true" android:resizeableActivity="true" android:configChanges="keyboard|keyboardHidden|navigation|screenSize|screenLayout|orientation|smallestScreenSize">
+            <intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LEANBACK_LAUNCHER"/></intent-filter>
+            <intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter>
+            <intent-filter><action android:name="android.intent.action.VIEW"/><category android:name="android.intent.category.DEFAULT"/><category android:name="android.intent.category.BROWSABLE"/><data android:scheme="ptvbox" android:host="home"/></intent-filter>
+        </activity>
+    </application>
+</manifest>

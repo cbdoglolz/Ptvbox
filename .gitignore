@@ -1,0 +1,15 @@
+.gradle/
+.kotlin/
+.idea/
+**/build/
+local.properties
+.tools/
+artifacts/
+dist/
+.codex-attachments/
+$null
+*.keystore
+*.jks
+*.credential
+*.log
+.env

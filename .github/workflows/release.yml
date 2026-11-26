@@ -1,0 +1,74 @@
+name: Ptvbox release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    env:
+      PTVBOX_KEYSTORE_BASE64: ${{ secrets.PTVBOX_KEYSTORE_BASE64 }}
+      PTVBOX_STORE_PASSWORD: ${{ secrets.PTVBOX_STORE_PASSWORD }}
+      PTVBOX_KEY_PASSWORD: ${{ secrets.PTVBOX_KEY_PASSWORD }}
+      WECHAT_WEBHOOK_URL: ${{ secrets.WECHAT_WEBHOOK_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: android-actions/setup-android@v3
+      - name: Install Android NDK
+        run: sdkmanager "ndk;28.2.13676358"
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Validate signing configuration
+        shell: bash
+        run: |
+          test -n "$PTVBOX_KEYSTORE_BASE64"
+          test -n "$PTVBOX_STORE_PASSWORD"
+          test -n "$PTVBOX_KEY_PASSWORD"
+          mkdir -p "$RUNNER_TEMP/signing"
+          printf '%s' "$PTVBOX_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/signing/release.jks"
+          printf 'PTVBOX_KEYSTORE=%s\n' "$RUNNER_TEMP/signing/release.jks" >> "$GITHUB_ENV"
+      - name: Read and validate version
+        id: version
+        shell: bash
+        run: |
+          version="$(sed -n 's/.*versionName = "\([0-9.]*\)".*/\1/p' app/build.gradle.kts)"
+          if [[ ! "$version" =~ ^[0-9]\.[0-9]\.[0-9]$ ]]; then
+            echo "Invalid decimal version: $version" >&2
+            exit 1
+          fi
+          test "$GITHUB_REF" = "refs/tags/v$version"
+          echo "value=$version" >> "$GITHUB_OUTPUT"
+      - name: Build signed APKs
+        shell: bash
+        run: bash scripts/Build-GitHub.sh
+      - name: Verify release assets
+        shell: bash
+        run: |
+          version='${{ steps.version.outputs.value }}'
+          test "$(find dist -maxdepth 1 -type f -name '*.apk' | wc -l)" -eq 2
+          test -f "dist/Ptvbox-$version.apk"
+          test -f "dist/Ptvbox-$version-ARM.apk"
+          ! find dist -maxdepth 1 -type f ! -name '*.apk' | grep -q .
+      - name: Create draft GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Ptvbox ${{ steps.version.outputs.value }}
+          body: Ptvbox ${{ steps.version.outputs.value }}
+          draft: true
+          prerelease: false
+          files: dist/*.apk
+      - name: Notify WeCom when configured
+        if: ${{ env.WECHAT_WEBHOOK_URL != '' }}
+        shell: bash
+        run: |
+          version='${{ steps.version.outputs.value }}'
+          payload="$(printf '{\"msgtype\":\"text\",\"text\":{\"content\":\"Ptvbox %s\"}}' "$version")"
+          curl --fail --silent --show-error -H 'Content-Type: application/json' --data "$payload" "$WECHAT_WEBHOOK_URL" > /dev/null

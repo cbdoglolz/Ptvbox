@@ -1,0 +1,10 @@
+package com.cbdog.ptvbox
+import android.app.Instrumentation
+import org.json.JSONObject
+object HdhubQa052 {
+ fun run(i:Instrumentation,m:PtvModel):JSONObject {val all=m.sites.all();val prior=all.associateWith{m.sites.enabled(it)};val site=all.first{it.type==8};val work=Work("qa-odyssey1080-052","奥德赛","movie","2026",facts=WorkFacts(imdbId="tt33764258"));val r=JSONObject()
+  try{m.db.prefs.edit().apply{all.forEach{putBoolean("site_${it.key}",it==site)}}.commit();i.runOnMainSync{m.play(work,"正片",true)};var chosen:Candidate?=null
+   UiQa050.await(130000){i.runOnMainSync{chosen=m.candidates.filter{it.height==1080&&it.road.contains("x264",true)}.sortedBy{if(it.road.contains("PixelDrain",true))0 else 1}.firstOrNull()};chosen!=null};val selected=chosen!!;i.runOnMainSync{m.select(selected,0,false)};UiQa050.await(60000){var ok=false;i.runOnMainSync{ok=m.hasRenderedFrame()&&m.player.videoSize.height==1080&&m.currentCandidate?.identity==selected.identity&&m.player.currentPosition>2000};ok};i.runOnMainSync{r.put("manual1080FirstFrame",true).put("main10Advertised",DecodeSupport052.main10).put("discoveredVersions",m.candidates.size);m.seek051(35000)};UiQa050.await(45000){var ok=false;i.runOnMainSync{ok=m.hasRenderedFrame()&&m.player.currentPosition>35000};ok};i.runOnMainSync{m.saveProgress();m.stop()};UiQa050.await{m.users.state.value.watches.firstOrNull{it.work.key==work.key}?.height==1080};val saved=m.db.last(work)!!;i.runOnMainSync{m.play(work)};UiQa050.await(90000){var ok=false;i.runOnMainSync{ok=m.hasRenderedFrame()&&m.player.videoSize.height==1080&&m.player.currentPosition>=saved.position&&m.currentCandidate?.site?.key==saved.siteKey&&Variant052.same(m.currentCandidate!!.road,saved.road)};ok};i.runOnMainSync{r.put("resumeSameSiteAndVersion",true).put("resumeActualHeight",m.player.videoSize.height).put("resumePosition",m.player.currentPosition).put("lastPosition",saved.position).put("noDowngradeTo720",m.player.videoSize.height==1080)};UiQa050.shot(i,"qa052-hdhub-1080-resume.png");return r
+  }finally{m.db.prefs.edit().apply{prior.forEach{(s,v)->putBoolean("site_${s.key}",v)}}.commit()}
+ }
+}
