@@ -20,7 +20,7 @@ import kotlinx.coroutines.*
    Row(Modifier.weight(1f).height(36.dp),verticalAlignment=androidx.compose.ui.Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(5.dp)){
     Box(Modifier.width(40.dp).height(24.dp),contentAlignment=androidx.compose.ui.Alignment.CenterStart){Text(if(p=="douban")"豆瓣"else"TMDB",color=tint,fontSize=12.sp,lineHeight=24.sp,maxLines=1)}
     Box(Modifier.widthIn(min=34.dp).height(24.dp),contentAlignment=androidx.compose.ui.Alignment.Center){Text(data?.rating?:"-",color=tint,fontSize=18.sp,lineHeight=24.sp,maxLines=1)}
-    Box(Modifier.weight(1f).height(24.dp),contentAlignment=androidx.compose.ui.Alignment.CenterStart){Text(if(data!=null)"${data.votes}人"else if(p=="tmdb"&&!m.tmdbConfigured)"无Key"else"未关联",color=c.muted,fontSize=10.sp,lineHeight=24.sp,maxLines=1)}
+    Box(Modifier.weight(1f).height(24.dp),contentAlignment=androidx.compose.ui.Alignment.CenterStart){Text(if(data!=null&&data.votes>0)"${data.votes}人"else if(data!=null)"暂无人数"else if(p=="tmdb"&&!m.tmdbConfigured)"无Key"else"未关联",color=c.muted,fontSize=10.sp,lineHeight=24.sp,maxLines=1)}
     MatchIcon056("✎","手动匹配${if(p=="douban")"豆瓣"else"TMDB"}"){edit=p;query=w.title;choices=emptyList();error=""}
     MatchIcon056("⌫","清除${if(p=="douban")"豆瓣"else"TMDB"}匹配"){m.metadata.clearRatingLink(w,p);scope.launch{m.artworkQueue.invalidate(w)};if(p=="tmdb")m.details.clearSeries();m.linkedRatings=m.linkedRatings+(w.ratingViewKey to (m.linkedRatings[w.ratingViewKey].orEmpty()+(p to null)));revision++}
    }

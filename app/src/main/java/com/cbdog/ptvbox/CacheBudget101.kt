@@ -13,6 +13,13 @@ internal object CacheBudget101 {
     const val ANIME_MAX_BYTES = 16L * 1024L * 1024L
     const val PRESENTATION_MAX_ROWS = 2000
 
+    fun dirBytes(dir: File): Long {
+        if (!dir.isDirectory) return 0L
+        return dir.walkTopDown().filter { it.isFile }.sumOf { it.length() }
+    }
+
+    fun filesBytes(files: List<File>): Long = files.filter { it.isFile }.sumOf { it.length() }
+
     fun touch(file: File) {
         if (file.isFile) runCatching { file.setLastModified(System.currentTimeMillis()) }
     }

@@ -1,6 +1,7 @@
 package com.cbdog.ptvbox
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -53,14 +54,14 @@ import androidx.tv.material3.Text
                 Text(title,color=c.text,fontSize=14.sp)
                 if(value.isNotBlank())Text("✓ 已配置",color=PcGreen,fontSize=11.sp)
             }
-            Text(value.ifBlank{emptyText},color=if(value.isBlank())c.muted else PcGreen,fontSize=13.sp,maxLines=3)
+            Text(value.ifBlank{emptyText},color=if(value.isBlank())c.muted else PcGreen,fontSize=13.sp,maxLines=2,overflow=androidx.compose.ui.text.style.TextOverflow.Ellipsis)
             if(note.isNotBlank())Text(note,color=c.muted,fontSize=11.sp,maxLines=2)
         }
         InputButton(
             {input="";open=true},
-            Modifier.focusRequester(editFocus).onFocusChanged{editFocused=it.isFocused},
+            Modifier.focusRequester(editFocus).onFocusChanged{editFocused=it.isFocused}.border(1.dp,c.border,RoundedCornerShape(8.dp)),
             shape=androidx.tv.material3.ButtonDefaults.shape(RoundedCornerShape(8.dp)),
-            colors=ptvButtonColors(c.raised,c.text),
+            colors=ptvButtonColors(androidx.compose.ui.graphics.Color(0x663e405b),c.text),
             contentPadding=PaddingValues(14.dp,10.dp)
         ){Text("配置",fontSize=14.sp,modifier=Modifier.semantics{contentDescription="配置 $title"+(if(editFocused)" · 当前焦点" else "")})}
     }

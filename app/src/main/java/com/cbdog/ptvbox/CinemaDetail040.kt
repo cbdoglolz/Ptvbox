@@ -1,6 +1,7 @@
 package com.cbdog.ptvbox
 
 import androidx.compose.foundation.*
+import androidx.compose.foundation.gestures.LocalBringIntoViewSpec
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.*
 import androidx.compose.foundation.lazy.grid.*
@@ -57,20 +58,25 @@ import kotlinx.coroutines.*
         Text(when(state){WatchState.COMPLETED->"✓ 已看";WatchState.WATCHING->"● 在看";WatchState.PLANNED->"♡ 想看";null->"观看状态"},color=color,fontSize=14.sp)
     }
 }
+@OptIn(ExperimentalFoundationApi::class)
 @Composable internal fun CinemaDetail040(m:PtvModel){
     val fresh by m.details.work.collectAsState();val raw=fresh?.takeIf{it.key==m.detail?.key}?:m.detail?:return;val (w,art)=presented050(m,raw)
     val catalog by m.details.catalog.collectAsState();val related by m.details.related.collectAsState();val collection by m.details.collection.collectAsState();val versions by m.details.versions.collectAsState();val artwork by m.details.artwork.collectAsState();val refreshing by m.details.refreshing.collectAsState()
+    val series by m.details.series.collectAsState();val seriesLoading by m.details.seriesLoading.collectAsState()
     val relatedBusy by m.details.relatedLoading.collectAsState();val relatedMore by m.details.relatedMore.collectAsState();val c=LocalCinema.current;val actionScope=rememberCoroutineScope();val state=rememberLazyGridState();val actionFocus=remember{FocusRequester()}
     var sourceExpanded by rememberSaveable(w.key){mutableStateOf(false)};var groupKey by rememberSaveable(w.key,w.season){mutableStateOf("")};var resolution by rememberSaveable(w.key){mutableStateOf(listOf<Int>())};var statusMenu by remember{mutableStateOf(false)}
-    LaunchedEffect(w.key){withFrameNanos{};runCatching{actionFocus.requestFocus()}}
+    val resumeEpNum=if(w.kind=="tv")m.user.watches.firstOrNull{it.work.key==w.key&&it.work.season==w.season}?.let{Identity.episode(it.episode)}else null
+    val deferFocusToEpisode=resumeEpNum!=null&&(seriesLoading||series?.episodes?.any{it.number==resumeEpNum}==true)
+    LaunchedEffect(w.key,deferFocusToEpisode){if(!deferFocusToEpisode){withFrameNanos{};runCatching{actionFocus.requestFocus()}}}
     val groups=catalog.groups.filter{m.siteEnabled(it.site)}.sortedWith(compareBy<CatalogGroup>{ResourceLabels040.bytes(ResourceLabels040.label(it)).takeIf{size->size>0}?:Long.MAX_VALUE}.thenBy{it.key})
     val heights=groups.map{ResourceLabels040.height(ResourceLabels040.label(it))}.filter{it>0}.distinct().sorted()
     val visible=groups.filter{resolution.isEmpty()||ResourceLabels040.height(ResourceLabels040.label(it)) in resolution}
     Box(Modifier.fillMaxSize()){
-        DetailArtwork040(m.metadata.doubanHdImage(w.backdrop.ifBlank{w.poster}),null,artwork,Modifier.fillMaxSize().blur(7.dp),ContentScale.Crop,.78f)
-        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(c.background.copy(alpha=.08f),c.background.copy(alpha=.42f),c.background.copy(alpha=.84f)))))
+        DetailArtwork040(m.metadata.doubanHdImage(w.backdrop.ifBlank{w.poster}),null,artwork,Modifier.fillMaxSize().blur(7.dp),ContentScale.Crop,.56f)
+        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(c.background.copy(alpha=.46f),c.background.copy(alpha=.72f),c.background.copy(alpha=.94f)))))
+        CompositionLocalProvider(LocalBringIntoViewSpec provides HomeBringIntoViewSpec){
         LazyVerticalGrid(GridCells.Adaptive(196.dp),state=state,modifier=Modifier.fillMaxSize().pagedDown051(state,related.map{"related|${it.key}"},{m.focusWork.takeIf{m.focusRow=="related"}?.let{"related|$it"}},relatedBusy,relatedMore,m.details::moreSimilar),horizontalArrangement=Arrangement.spacedBy(13.dp),verticalArrangement=Arrangement.spacedBy(18.dp),contentPadding=PaddingValues(12.dp,8.dp,12.dp,24.dp)){
-            item(key="hero",span={GridItemSpan(maxLineSpan)}){Row(Modifier.fillMaxWidth().background(Color(0x5210111b),RoundedCornerShape(12.dp)).padding(22.dp),horizontalArrangement=Arrangement.spacedBy(26.dp),verticalAlignment=Alignment.CenterVertically){
+            item(key="hero",span={GridItemSpan(maxLineSpan)}){Row(Modifier.fillMaxWidth().background(Color(0xBD101322),RoundedCornerShape(14.dp)).border(1.dp,c.border.copy(alpha=.75f),RoundedCornerShape(14.dp)).padding(20.dp),horizontalArrangement=Arrangement.spacedBy(24.dp),verticalAlignment=Alignment.CenterVertically){
                 DetailArtwork040(w.poster,w.title,artwork,Modifier.width(178.dp).height(252.dp).clip(RoundedCornerShape(10.dp)),ContentScale.Fit)
                 Column(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(12.dp)){
                     ProviderRatingRows(m,w)
@@ -83,7 +89,7 @@ import kotlinx.coroutines.*
                 }
             }}
             item(key="hero-actions",span={GridItemSpan(maxLineSpan)}){FlowRow(horizontalArrangement=Arrangement.spacedBy(8.dp),verticalArrangement=Arrangement.spacedBy(7.dp)){
-                Action("▶ 播放 / 续播",{m.play(w)},Modifier.focusRequester(actionFocus));DetailFavoriteAction(w.key in m.user.favorites){m.toggleFavorite(w)};DetailWatchStateAction(m.user.states[w.key]){statusMenu=true}
+                Action("▶ 播放 / 续播",{m.play(w)},Modifier.focusRequester(actionFocus).border(1.dp,PcAccent.copy(alpha=.65f),RoundedCornerShape(8.dp)));DetailFavoriteAction(w.key in m.user.favorites){m.toggleFavorite(w)};DetailWatchStateAction(m.user.states[w.key]){statusMenu=true}
                 Action("搜索高清源",{sourceExpanded=true;m.details.refresh(true)});Action(if(refreshing)"刷新资料中…"else"刷新全部资料",{if(!refreshing){m.details.refreshAll();actionScope.launch{m.artworkQueue.invalidate(w)}}});Action("校正季集关联",{m.seasonCorrectionRequest++})
             }}
             if(w.kind=="tv")item(key="seasons",span={GridItemSpan(maxLineSpan)}){SeasonEpisodes040(m,w)}
@@ -109,6 +115,7 @@ import kotlinx.coroutines.*
             if(collection.isNotEmpty())item(key="collection-row",span={GridItemSpan(maxLineSpan)}){Column(verticalArrangement=Arrangement.spacedBy(12.dp)){PcSection(w.facts.collectionName.ifBlank{"同系列作品"});LazyRow(horizontalArrangement=Arrangement.spacedBy(14.dp),contentPadding=PaddingValues(4.dp)){items(collection,key={it.key}){item->Box(Modifier.width(138.dp)){CinemaPoster(m,item,"collection")}}}}}
             if(versions.isNotEmpty())item(key="versions-row",span={GridItemSpan(maxLineSpan)}){Column(verticalArrangement=Arrangement.spacedBy(12.dp)){PcSection("相关版本 · 不同年份为不同作品，请核对");LazyRow(horizontalArrangement=Arrangement.spacedBy(14.dp),contentPadding=PaddingValues(4.dp)){items(versions,key={it.key}){item->Box(Modifier.width(138.dp)){CinemaPoster(m,item,"versions")}}}}}
             if(related.isNotEmpty())item(key="related-row",span={GridItemSpan(maxLineSpan)}){Column(Modifier.fillMaxWidth().onPreviewKeyEvent{e->val last=related.lastOrNull();if(e.key==Key.DirectionDown&&e.type==KeyEventType.KeyDown&&e.nativeKeyEvent.repeatCount==0&&m.focusRow=="related"&&m.focusWork==last?.key&&!relatedBusy&&relatedMore){m.details.moreSimilar();true}else false},verticalArrangement=Arrangement.spacedBy(10.dp)){PcSection("相似推荐","一行五部 · 最后一行继续向下加载");related.chunked(5).forEach{row->Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(10.dp)){row.forEach{work->Box(Modifier.weight(1f)){CinemaPoster(m,work,"related")}};repeat(5-row.size){Spacer(Modifier.weight(1f))}}};MoreHint051(relatedBusy,relatedMore,m.details::moreSimilar)}}
+        }
         }
     }
     if(statusMenu)WatchPicker056("观看状态",m.user.states[w.key],{state->if(state==null)m.clearWatchState(w)else m.setWatchState(w,state);statusMenu=false},{statusMenu=false})

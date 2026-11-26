@@ -72,7 +72,12 @@ object Identity {
         .replace(Regex("(?:重制版|特别篇|番外篇)$"),"")
         .trim()
     fun seriesCore(value:String)=searchTitle(value).substringBefore('：').substringBefore(':').trim()
-    fun searchQueries(work:Work):List<String> = (listOf(work.title,searchTitle(work.title),seriesCore(work.title),work.original)+work.aliases+work.aliases.map(::searchTitle)).map{it.trim()}.filter{it.length>=2}.distinct()
+    fun overviewAliases(overview:String):List<String> = Regex("《([^《》\\n]{2,24})》").findAll(overview).map{it.groupValues[1].trim()}.filter{it.length>=2&&!it.contains(Regex("原著|小说|漫画|电影|剧集|系列"))}.distinct().take(3).toList()
+    private fun hasCjk(value:String)=value.any{it in '\u4e00'..'\u9fff'}
+    fun searchQueries(work:Work):List<String> {
+        val raw=(listOf(work.title,searchTitle(work.title),seriesCore(work.title))+overviewAliases(work.overview)+work.aliases+work.aliases.map(::searchTitle)+listOf(work.original)).map{it.trim()}.filter{it.length>=2}.distinct()
+        return raw.sortedBy{if(it==work.title)0 else if(hasCjk(it))1 else 2}
+    }
     fun sameEpisode(a:String,b:String):Boolean = normalize(a)==normalize(b)||(episode(a)?.let{it==episode(b)}?:false)
     fun normalize(value:String)=normalizeNumberWords(Normalizer.normalize(value,Normalizer.Form.NFKC).lowercase()).replace(Regex("[\\p{P}\\p{Z}\\s]"),"").let{s->
         Regex("第([零〇一二三四五六七八九十百两]+)([季期部集话話])").replace(s){m->"第${chineseNumber(m.groupValues[1])?:m.groupValues[1]}${m.groupValues[2]}"}
@@ -100,7 +105,7 @@ object Identity {
         if(vod.title.contains(Regex("解说|預告|预告|花絮|幕后|抢先看")))return 0
         val nfWork=nianfan(work.title)?:work.aliases.firstNotNullOfOrNull(::nianfan)
         val nfVod=nianfan(vod.title)
-        val names=(listOf(work.title,work.original)+work.aliases).filter{it.isNotBlank()}
+        val names=(listOf(work.title,work.original)+work.aliases+overviewAliases(work.overview)).filter{it.isNotBlank()}
         val exactBase=names.any{base(it)==base(vod.title)}
         val coreMatch=exactBase||(nfWork!=null&&names.any{normalize(seriesCore(it)).let{c->c.length>=2&&c==normalize(seriesCore(vod.title))}})
         if(!coreMatch)return 0
@@ -116,7 +121,7 @@ object Identity {
                 else->60
             }
         }
-        if(work.year.length==4&&vod.year.length==4&&work.year!=vod.year)return 0
+        if(work.year.length==4&&vod.year.length==4){val wy=work.year.toIntOrNull();val vy=vod.year.toIntOrNull();if(wy!=null&&vy!=null&&kotlin.math.abs(wy-vy)>1)return 0}
         if(work.kind=="tv"){val actual=season(vod.title);if(actual!=null&&actual!=work.season)return 0;if(actual==null&&work.season>1)return 0}
         return if(exactBase)100 else 0
     }

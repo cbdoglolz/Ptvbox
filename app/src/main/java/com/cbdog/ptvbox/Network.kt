@@ -197,6 +197,7 @@ class Sites(private val context:android.content.Context,private val db:Library) 
     val parallel get()=settings.parallel
     fun ordered(work:Work?=null)=SourceRoutePolicy.order(work,all(),settings)
     fun close(){bridge.close()}
+    fun releaseIdleSpider(keepAlive:Boolean){if(!keepAlive)bridge.close()}
     fun all():List<Site>{val built=JSONObject(context.assets.open("default-sites.json").bufferedReader().use{it.readText()}).getJSONArray("sites").objects().map{Site.from(it)};val custom=runCatching{val config=JSONObject(db.secrets.read("source_config"));val jar=config.opt("spider").let{if(it is JSONObject)it.optString("url")else it?.toString().orEmpty()};config.optJSONArray("sites")?.objects()?.map{Site.from(it).let{s->s.copy(group="私人订阅",jar=s.jar.ifBlank{jar})}}?:emptyList()}.getOrDefault(emptyList());val international=JSONObject(context.assets.open("international-sites.json").bufferedReader().use{it.readText()}).getJSONArray("sites").objects().map{Site.from(it)};return (custom+built+international+anime.sites()).distinctBy{it.key}}
     fun supports(site:Site)=site.type in listOf(0,1,4,8,9)||(site.type==3&&site.api.startsWith("csp_"))
     fun enabled(site:Site)=db.prefs.getBoolean("site_${site.key}",true)
@@ -209,7 +210,7 @@ class Sites(private val context:android.content.Context,private val db:Library) 
 val dd=v.getElementsByTagName("dd");Vod(field("id"),field("name"),field("year"),field("pic"),field("des"),(0 until dd.length).map{n->val d=dd.item(n) as org.w3c.dom.Element;Road(d.getAttribute("flag"),d.textContent.split('#').mapNotNull{val at=it.indexOf('$');if(at<0)null else Episode(it.substring(0,at),it.substring(at+1))})})}}
     suspend fun prepareAuth054(site:Site)=bridge.prepare(site)
     suspend fun probe(site:Site,road:Road,episode:Episode,interactive:Boolean=false):Candidate {
-        if(!interactive&&CloudPolicy054.needsAuthorization(site)&&System.currentTimeMillis()-db.prefs.getLong("cloud_authenticated_${site.key}",0)>30L*86400000)throw IOException("需要扫码授权，请手动打开网盘")
+        if(!interactive&&(CloudPolicy054.needsAuthorization(site)||CloudPolicy054.isCloudRoad(road.name))&&System.currentTimeMillis()-db.prefs.getLong("cloud_authenticated_${site.key}",0)>30L*86400000)throw IOException("需要扫码授权，请手动打开网盘")
         val resolved=if(site.type==3)bridge.player(site,road,episode)else if(site.type==9)anime.resolve(site,episode)else episode to emptyMap();var media=resolved.first;var requestSite=site.copy(headers=site.headers+resolved.second+if(site.type==8)Stremio050.headersFor(media.url)else emptyMap())
         val u=media.url.toHttpUrlOrNull()?:throw IOException("播放地址无效");if(u.scheme !in listOf("http","https"))throw IOException("线路协议未支持")
         val start=System.nanoTime();var data=try{Net.bytes(media.url,requestSite.headers+mapOf("Range" to "bytes=0-4095"),4096,true,direct=requestSite.type==8)}catch(e:CancellationException){throw e}catch(e:Exception){if(LiveParser050.isPortal(site)||site.group=="直播与体育"||e.message.orEmpty().contains("HTTP 405")||e.message.orEmpty().contains("HTTP 416")||e.message.orEmpty().contains("HTTP 501"))Net.bytes(media.url,requestSite.headers,4096,true,direct=requestSite.type==8)else throw e}

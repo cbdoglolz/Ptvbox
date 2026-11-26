@@ -7,16 +7,17 @@ import android.content.SharedPreferences
 /** Android policy behind the PC-style settings; no credentials live in these preferences. */
 data class TvBudget(val name:String,val parallel:Int,val imageMb:Int,val bufferMb:Int,val imageFraction:Double){
     companion object {
-        fun resolve(choice:String,lowRam:Boolean,memoryClass:Int):TvBudget = when {
-            choice=="economy" || choice=="auto"&&(lowRam||memoryClass<=192)->TvBudget("轻量",6,128,24,.06)
-            choice=="performance"->TvBudget("高性能",20,512,96,.14)
-            else->TvBudget("均衡",12,256,48,.10)
+        fun resolve(choice:String,lowRam:Boolean,memoryClass:Int,totalRamMb:Long=4096L):TvBudget = when {
+            choice=="economy" || choice=="auto"&&(lowRam||memoryClass<=192||totalRamMb in 1..2300)->TvBudget("轻量",4,128,24,.06)
+            choice=="performance"->TvBudget("高性能",16,512,64,.12)
+            choice=="auto"&&totalRamMb in 2301..4200->TvBudget("电视均衡",6,256,32,.08)
+            else->TvBudget("均衡",10,256,48,.10)
         }
     }
 }
 class TvPreferences(val context:Context){
     val prefs:SharedPreferences=context.getSharedPreferences("preferences",Context.MODE_PRIVATE)
-    val budget:TvBudget get(){val am=context.getSystemService(ActivityManager::class.java);return TvBudget.resolve(text("device_profile","auto"),am.isLowRamDevice,am.memoryClass)}
+    val budget:TvBudget get(){val am=context.getSystemService(ActivityManager::class.java);val mi=ActivityManager.MemoryInfo();runCatching{am.getMemoryInfo(mi)};val totalMb=if(mi.totalMem>0)mi.totalMem/(1024L*1024L)else 4096L;return TvBudget.resolve(text("device_profile","auto"),am.isLowRamDevice,am.memoryClass,totalMb)}
     fun text(key:String,default:String="")=runCatching{prefs.getString(key,default)?:default}.getOrDefault(default)
     fun flag(key:String,default:Boolean=false)=runCatching{prefs.getBoolean(key,default)}.getOrDefault(default)
     fun number(key:String,default:Int)=runCatching{prefs.getInt(key,default)}.getOrDefault(default)
@@ -24,9 +25,15 @@ class TvPreferences(val context:Context){
     fun set(key:String,value:Boolean){prefs.edit().putBoolean(key,value).apply()}
     fun set(key:String,value:Int){prefs.edit().putInt(key,value).apply()}
     val parallel get()=number("search_parallel",budget.parallel).coerceIn(1,20)
+    val sourceStopCount get()=number("source_stop_count",3).coerceIn(0,20)
+    val audioPrimaryLang get()=text("audio_lang_primary","zh")
+    val audioSecondaryLang get()=text("audio_lang_secondary","en")
+    val subtitlePrimaryLang get()=text("subtitle_lang_primary","zh")
+    val subtitleSecondaryLang get()=text("subtitle_lang_secondary","en")
     val imageMb get()=number("image_cache_mb",budget.imageMb).coerceIn(64,1024)
     val timeout get()=number("site_timeout",15).coerceIn(5,60)
     val startupSeconds get()=number("startup_timeout",30).coerceIn(5,60)
+    val seekStepMs get()=number("seek_step_seconds",5).coerceIn(5,30)*1000L
     val speed get()=1f
     val background get()=flag("background_playback")
     val incognito get()=flag("incognito")

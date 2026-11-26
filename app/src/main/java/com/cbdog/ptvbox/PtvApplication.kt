@@ -8,11 +8,13 @@ import coil3.network.okhttp.OkHttpNetworkFetcherFactory
 import okhttp3.OkHttpClient
 import coil3.memory.MemoryCache
 import coil3.disk.DiskCache
+import coil3.request.allowRgb565
 import okio.Path.Companion.toOkioPath
 
 class PtvApplication:Application(),SingletonImageLoader.Factory {
     override fun onCreate(){super.onCreate();val spider=getProcessName().endsWith(":spider");if(android.os.Build.VERSION.SDK_INT>=28&&!spider)android.webkit.WebView.setDataDirectorySuffix("media052");PluginUi054.install();runCatching{NetworkPolicy.apply(this)}}
     override fun newImageLoader(context:Context):ImageLoader = ImageLoader.Builder(context)
+        .allowRgb565(true)
         .memoryCache{MemoryCache.Builder().maxSizePercent(context,TvPreferences(context).budget.imageFraction).build()}
         .diskCache{DiskCache.Builder().directory(context.cacheDir.resolve("posters").toOkioPath()).maxSizeBytes(TvPreferences(context).imageMb*1024L*1024).build()}
         .components { add(OkHttpNetworkFetcherFactory(callFactory={NetworkPolicy.client().newBuilder().followRedirects(true).addInterceptor{chain->

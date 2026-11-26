@@ -34,13 +34,14 @@ try {
     $version=[regex]::Match((Get-Content app/build.gradle.kts -Raw),'versionName = "([0-9.]+(?:-c[0-9]+)?)"').Groups[1].Value
     $isCandidate=$version -match '-c[0-9]+$'
     $baseVersion=$version -replace '-c[0-9]+$',''
-    $folder=Join-Path $root (if($isCandidate){"artifacts/candidate-v$baseVersion"}else{"artifacts/release-v$version"});New-Item -ItemType Directory -Force $folder | Out-Null
+    $relFolder=if($isCandidate){"artifacts/candidate-v$baseVersion"}else{"artifacts/release-v$version"}
+    $folder=Join-Path $root $relFolder;New-Item -ItemType Directory -Force $folder | Out-Null
     if($isCandidate){Get-ChildItem -LiteralPath $folder -Filter '*.apk' -ErrorAction SilentlyContinue | Where-Object {$_.Name -notlike "Ptvbox-$version*"} | Remove-Item -Force -ErrorAction SilentlyContinue}
     else{$candDir=Join-Path $root "artifacts/candidate-v$baseVersion";if(Test-Path -LiteralPath $candDir){Remove-Item -LiteralPath $candDir -Recurse -Force -ErrorAction SilentlyContinue}}
     $suffix=if($DebugOnly){'-QA'}elseif($ArmHost){'-ARM'}else{''};$file="Ptvbox-$version$suffix.apk"
     $source=if($DebugOnly){'app/build/outputs/apk/debug/app-debug.apk'}else{'app/build/outputs/apk/release/app-release.apk'}
     Copy-Item -LiteralPath $source -Destination (Join-Path $folder $file)
     $hash=(Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $folder $file)).Hash.ToLowerInvariant()
-    $sums=Join-Path $folder 'SHA256SUMS.txt';$lines=if(Test-Path $sums){@(Get-Content $sums | Where-Object {$_ -notmatch ('  '+[regex]::Escape($file)+'$')})}else{@()};@($lines)+"$hash  $file" | Set-Content -LiteralPath $sums -Encoding ascii
+    $sums=Join-Path $folder 'SHA256SUMS.txt';$lines=if(Test-Path $sums){@(Get-Content $sums | Where-Object {(-not $isCandidate -or $_ -match ('  Ptvbox-'+[regex]::Escape($version))) -and $_ -notmatch ('  '+[regex]::Escape($file)+'$')})}else{@()};@($lines)+"$hash  $file" | Set-Content -LiteralPath $sums -Encoding ascii
     Write-Output "Built: $folder/$file"
 }finally{foreach($name in $names){[Environment]::SetEnvironmentVariable($name,$prior[$name],'Process')};Pop-Location}

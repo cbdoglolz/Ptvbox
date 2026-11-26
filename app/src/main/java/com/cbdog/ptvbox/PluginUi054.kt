@@ -31,5 +31,9 @@ internal object ToastProxyPolicy {
  fun shouldBlock(method:String)=method.contains("toast",true)&&(method.startsWith("enqueue",true)||method.startsWith("cancel",true))
 }
 object CloudPolicy054 {
- fun needsAuthorization(site:Site)=Regex("网盘|玩偶|盘他|盘搜|盘地|夸克|阿里|小雅|(?i)\\b(?:alist|alipan|quark|wogg)\\b").containsMatchIn(site.name)||Regex("(?i)^csp_(?:Ali|Quark|Wogg|Ypan|Bpan|AList)").containsMatchIn(site.api)
+ private val siteNameRegex=Regex("网盘|云盘|玩偶|木偶|蜡笔|虎斑|闪电|二小|欧歌|至臻|多多|小米|优汐|盘他|盘搜|盘地|夸克|阿里|小雅|天翼|百度|迅雷|115|123|(?i)\\b(?:uc|alist|alipan|quark|wogg|pan)\\b")
+ private val siteApiRegex=Regex("(?i)^csp_(?:Ali|Quark|UC|Wogg|Wobg|Muou|Labi|Huban|XiaoMi|ErXiao|Ouge|ZhiZhen|Duoduo|Ypan|Bpan|Pan|AList|Push)")
+ private val roadRegex=Regex("网盘|云盘|夸克|阿里|优汐|天翼|百度|迅雷|移动云|115|123|(?i)(?:^|[^a-z])(?:uc|quark|ali|alipan|alist|pan)(?:[^a-z]|$)")
+ fun needsAuthorization(site:Site)=siteNameRegex.containsMatchIn(site.name)||siteApiRegex.containsMatchIn(site.api)
+ fun isCloudRoad(roadName:String)=roadRegex.containsMatchIn(roadName)
 }

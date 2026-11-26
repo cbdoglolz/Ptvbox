@@ -22,7 +22,7 @@ class EpisodeInteraction060Test {
         assertTrue(seasons.contains("focusedEpisode?.let{episode->EpisodeSynopsis060"))
         assertTrue(seasons.contains("LaunchedEffect(show.id,show.episodes)"))
         assertTrue(seasons.contains("show.episodes.firstOrNull{it.number==number}"))
-        assertTrue(seasons.contains("synopsisBring.bringIntoView()"))
+        assertFalse(seasons.contains("bringIntoView()"))
         assertTrue(seasons.contains("本集暂未提供简介"))
         assertTrue(seasons.contains("contentDescription=\"第${'$'}{episode.number}集简介\""))
         assertTrue(seasons.contains("点按展开简介"))

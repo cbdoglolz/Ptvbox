@@ -1,2 +1,6 @@
-<?xml version='1.0' encoding='utf-8'?>
-<vector xmlns:aapt="http://schemas.android.com/aapt" xmlns:android="http://schemas.android.com/apk/res/android" android:width="28dp" android:height="28dp" android:viewportWidth="34.0" android:viewportHeight="34.0"><group android:translateX="1" android:translateY="1"><path android:pathData="M 5,20 V 10 Q 5,3 11,8 l 5,2 l 5,-2 q 6,-5 6,2 v 10 a 11,10 0 0,1 -22,0 M 2,17 h 4 m -4,4 h 4 m 20,-4 h 4 m -4,4 h 4" android:fillColor="#00000000" android:strokeWidth="2.1" android:strokeLineCap="round" android:strokeLineJoin="round"><aapt:attr name="android:strokeColor"><gradient android:startX="0" android:startY="0" android:endX="23.799999999999997" android:endY="34.0" android:type="linear"><item android:offset="0" android:color="#66E4FF" /><item android:offset=".5" android:color="#8CA5FF" /><item android:offset="1" android:color="#D45EED" /></gradient></aapt:attr></path></group></vector>
+<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
+    <!-- Classic Mickey Mouse head silhouette -->
+    <path android:fillColor="#FFFFFF" android:pathData="M6.8,7.4 m-3.6,0 a3.6,3.6 0 1,0 7.2,0 a3.6,3.6 0 1,0 -7.2,0"/>
+    <path android:fillColor="#FFFFFF" android:pathData="M17.2,7.4 m-3.6,0 a3.6,3.6 0 1,0 7.2,0 a3.6,3.6 0 1,0 -7.2,0"/>
+    <path android:fillColor="#FFFFFF" android:pathData="M12,14.2 m-5.6,0 a5.6,5.6 0 1,0 11.2,0 a5.6,5.6 0 1,0 -11.2,0"/>
+</vector>

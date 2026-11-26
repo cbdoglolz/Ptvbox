@@ -67,10 +67,14 @@ internal object InfoChinese056{
  fun isLikelyChinese(value:String)=hasHan(value)&&value.none{it in '\u3040'..'\u30ff'}
 }
 
+@Composable private fun CompactSchedChip(label:String,selected:Boolean=false,click:()->Unit){
+ val c=LocalCinema.current
+ InputButton(click,Modifier.border(1.dp,if(selected)PcAccent.copy(alpha=.7f)else c.border.copy(alpha=.8f),RoundedCornerShape(6.dp)).selection051(selected),shape=androidx.tv.material3.ButtonDefaults.shape(RoundedCornerShape(6.dp)),focusRadius=6.dp,colors=ptvButtonColors(if(selected)Color(0xff4d3a77)else c.raised.copy(alpha=.75f),if(selected)Color.White else c.text.copy(alpha=.88f)),contentPadding=PaddingValues(horizontal=9.dp,vertical=5.dp)){Text(label,fontSize=11.sp,maxLines=1)}
+}
 @Composable private fun YearStepCircle056(label:String,click:()->Unit){
     val c=LocalCinema.current
-    InputButton(click,Modifier.size(34.dp).border(1.dp,PtvFocusBorder,CircleShape),shape=androidx.tv.material3.ButtonDefaults.shape(CircleShape),colors=ptvButtonColors(Color.Transparent,c.text),contentPadding=PaddingValues(0.dp)){
-        Box(Modifier.fillMaxSize(),contentAlignment=androidx.compose.ui.Alignment.Center){Text(label,color=c.text,fontSize=18.sp)}
+    InputButton(click,Modifier.size(26.dp).border(1.dp,PtvFocusBorder,CircleShape),shape=androidx.tv.material3.ButtonDefaults.shape(CircleShape),focusRadius=13.dp,colors=ptvButtonColors(Color.Transparent,c.text),contentPadding=PaddingValues(0.dp)){
+        Box(Modifier.fillMaxSize(),contentAlignment=androidx.compose.ui.Alignment.Center){Text(label,color=c.text,fontSize=14.sp)}
     }
 }
 
@@ -143,21 +147,20 @@ internal object InfoChinese056{
    if(tab in listOf("hot","schedule"))PcChip("刷新",false,{refresh++})
   }
   if(tab=="schedule"){
-   Column(Modifier.fillMaxWidth().background(c.surface,RoundedCornerShape(10.dp)).padding(10.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){
-    Row(Modifier.fillMaxWidth(),verticalAlignment=androidx.compose.ui.Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)){
-     Text("年份",color=c.muted,fontSize=12.sp)
-     PcChip("-5",false,{year=(year-5).coerceAtLeast(1970);weekday=0})
+   Column(Modifier.fillMaxWidth().background(c.surface,RoundedCornerShape(8.dp)).border(1.dp,c.border.copy(alpha=.6f),RoundedCornerShape(8.dp)).padding(horizontal=10.dp,vertical=7.dp),verticalArrangement=Arrangement.spacedBy(6.dp)){
+    Row(Modifier.fillMaxWidth(),verticalAlignment=androidx.compose.ui.Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(5.dp)){
+     Text("${year}年${AnimeSeason056.seasons[quarter]} · ${scheduleRows.size}部",color=c.text,fontSize=13.sp,fontWeight=androidx.compose.ui.text.font.FontWeight.SemiBold,maxLines=1)
+     Text("· $status",color=c.muted,fontSize=10.sp,maxLines=1,overflow=androidx.compose.ui.text.style.TextOverflow.Ellipsis,modifier=Modifier.weight(1f))
+     CompactSchedChip("-5"){year=(year-5).coerceAtLeast(1970);weekday=0}
      YearStepCircle056("−"){year--;weekday=0}
-     Text("$year",color=c.text,fontSize=18.sp)
+     Text("$year",color=c.text,fontSize=13.sp)
      YearStepCircle056("+"){year++;weekday=0}
-     PcChip("+5",false,{year=(year+5).coerceAtMost(now.year+2);weekday=0})
-     Spacer(Modifier.width(8.dp))
-     AnimeSeason056.seasons.forEachIndexed{index,name->PcChip(name,quarter==index,{quarter=index;weekday=0})}
-     Spacer(Modifier.weight(1f))
-     PcChip("回到本季",false,{year=now.year;quarter=(now.monthValue-1)/3;weekday=0;refresh++})
+     CompactSchedChip("+5"){year=(year+5).coerceAtMost(now.year+2);weekday=0}
+     listOf("冬","春","夏","秋").forEachIndexed{index,name->CompactSchedChip(name,quarter==index){quarter=index;weekday=0}}
+     CompactSchedChip("本季"){year=now.year;quarter=(now.monthValue-1)/3;weekday=0;refresh++}
     }
-    FlowRow(horizontalArrangement=Arrangement.spacedBy(6.dp),verticalArrangement=Arrangement.spacedBy(6.dp)){
-     (0..7).forEach{day->val count=if(day==0)rows.size else rows.count{it.weekday==day};PcChip((if(day==0)"全部"else"周${"一二三四五六日"[day-1]}")+" $count",weekday==day,{weekday=day})}
+    Row(Modifier.fillMaxWidth(),verticalAlignment=androidx.compose.ui.Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(5.dp)){
+     (0..7).forEach{day->val count=if(day==0)rows.size else rows.count{it.weekday==day};CompactSchedChip((if(day==0)"全部"else"周${"一二三四五六日"[day-1]}")+" $count",weekday==day){weekday=day}}
     }
    }
   }
@@ -174,8 +177,8 @@ internal object InfoChinese056{
    val hasMore=paged.size<shown.size
    val animeGrid=rememberLazyGridState()
    LazyVerticalGrid(GridCells.Adaptive(138.dp),state=animeGrid,modifier=Modifier.weight(1f).fillMaxWidth().pagedDown051(animeGrid,paged.map{it.work.key},{m.focusWork.takeIf{m.focusRow=="anime"}},busy,hasMore){visibleLimit+=20},horizontalArrangement=Arrangement.spacedBy(14.dp),verticalArrangement=Arrangement.spacedBy(16.dp),contentPadding=PaddingValues(4.dp,4.dp,8.dp,18.dp)){
-    item(span={GridItemSpan(maxLineSpan)}){Column(verticalArrangement=Arrangement.spacedBy(4.dp)){
-     PcSection(if(tab=="hot")"近期热门番剧 · ${year}年${AnimeSeason056.seasons[quarter]}"else"番剧时间表 · ${year}年${AnimeSeason056.seasons[quarter]}",if(tab=="schedule"){if(weekday==0)"已显示 ${paged.size}/${shown.size}部 · 北京时间"else"周${"一二三四五六日"[weekday-1]} · 已显示 ${paged.size}/${shown.size}部 · 北京时间"}else"已显示 ${paged.size}/${shown.size}部 · 每次加载20部，向下滑加载更多")
+    if(tab=="hot")item(span={GridItemSpan(maxLineSpan)}){Column(verticalArrangement=Arrangement.spacedBy(4.dp)){
+     PcSection("近期热门番剧 · ${year}年${AnimeSeason056.seasons[quarter]}","已显示 ${paged.size}/${shown.size}部 · 每次加载20部，向下滑加载更多")
      Text(status,color=c.muted,fontSize=10.sp)
     }}
     if(busy&&rows.isEmpty())item(span={GridItemSpan(maxLineSpan)}){Text("正在加载新番海报与中文资料…",color=PcAccent)}

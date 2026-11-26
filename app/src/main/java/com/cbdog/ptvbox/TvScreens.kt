@@ -1,6 +1,8 @@
 package com.cbdog.ptvbox
 
 import androidx.compose.foundation.*
+import androidx.compose.foundation.gestures.BringIntoViewSpec
+import androidx.compose.foundation.gestures.LocalBringIntoViewSpec
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -29,6 +31,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.tv.material3.*
 import coil3.compose.AsyncImage
+import kotlinx.coroutines.launch
 
 data class CinemaNav(val label:String,val id:String,val icon:Int)
 private val navItems=listOf(CinemaNav("首页","home",R.drawable.pc_home),CinemaNav("动画","anime",R.drawable.pc_anime),CinemaNav("直播与体育","live",R.drawable.pc_live),CinemaNav("搜索筛选","search",R.drawable.pc_search),CinemaNav("收藏","favorites",R.drawable.pc_keep),CinemaNav("历史","history",R.drawable.pc_history))
@@ -38,10 +41,18 @@ private fun navSelected(m:PtvModel,id:String):Boolean {
  val special=mapOf("动画" to "anime","纪录片" to "documentary","综艺" to "variety")[m.category]
  return if(special!=null)id==special else id==m.kind
 }
-@Composable private fun NavIcon(n:CinemaNav,size:Int=25){Box(Modifier.size(size.dp)){Image(painterResource(n.icon),null,Modifier.fillMaxSize());if(n.id=="anime")Text("ANI",color=PcCyan,fontSize=6.sp,modifier=Modifier.align(Alignment.Center).padding(top=4.dp))}}
-@Composable private fun RailTile050(label:String,selected:Boolean,pinned:Boolean,click:()->Unit,content:@Composable ()->Unit){
+@Composable private fun NavIcon(n:CinemaNav,active:Boolean=false,size:Int=24){
+ val tint=if(active)PcAccent else Color(0xff94a3b8)
+ Box(Modifier.size(size.dp),contentAlignment=Alignment.Center){
+  Image(painterResource(n.icon),null,Modifier.fillMaxSize(),colorFilter=ColorFilter.tint(tint))
+ }
+}
+@Composable private fun RailTile050(label:String,selected:Boolean,pinned:Boolean,click:()->Unit,tileModifier:Modifier=Modifier,content:@Composable (Boolean)->Unit){
  val c=LocalCinema.current;var focused by remember{mutableStateOf(false)};val density=androidx.compose.ui.platform.LocalDensity.current;val gap=with(density){8.dp.roundToPx()}
- Box{InputButton(click,Modifier.fillMaxWidth().heightIn(min=56.dp).selection051(selected).onFocusChanged{focused=it.hasFocus}.semantics{contentDescription=label;this.selected=selected},shape=ButtonDefaults.shape(RoundedCornerShape(8.dp)),colors=ptvButtonColors(if(selected)c.raised else Color.Transparent,c.text),scale=ButtonDefaults.scale(1f,if(pinned)1.015f else 1f,.99f),contentPadding=PaddingValues(11.dp)){content();if(pinned){Spacer(Modifier.width(12.dp));Text(label,fontSize=14.sp,maxLines=2)}}
+ Box{InputButton(click,tileModifier.fillMaxWidth().height(if(pinned)50.dp else 48.dp).selection051(selected).onFocusChanged{focused=it.hasFocus}.semantics{contentDescription=label;this.selected=selected},shape=ButtonDefaults.shape(RoundedCornerShape(10.dp)),focusRadius=10.dp,colors=ptvButtonColors(if(selected)Color(0x553b346b)else Color.Transparent,c.text),scale=ButtonDefaults.scale(1f,if(pinned)1.015f else 1f,.99f),contentPadding=if(pinned)PaddingValues(horizontal=12.dp,vertical=8.dp)else PaddingValues(0.dp)){
+  if(pinned){content(selected||focused);Spacer(Modifier.width(12.dp));Text(label,fontSize=14.sp,maxLines=2)}
+  else Box(Modifier.fillMaxSize(),contentAlignment=Alignment.Center){content(selected||focused)}
+ }
   if(focused&&!pinned)androidx.compose.ui.window.Popup(popupPositionProvider=remember(gap){object:androidx.compose.ui.window.PopupPositionProvider{override fun calculatePosition(anchorBounds:androidx.compose.ui.unit.IntRect,windowSize:IntSize,layoutDirection:LayoutDirection,popupContentSize:IntSize)=IntOffset((anchorBounds.right+gap).coerceAtMost(windowSize.width-popupContentSize.width), (anchorBounds.center.y-popupContentSize.height/2).coerceIn(0,(windowSize.height-popupContentSize.height).coerceAtLeast(0))) }},properties=androidx.compose.ui.window.PopupProperties(focusable=false)){Text(label,color=c.text,fontSize=15.sp,modifier=Modifier.background(c.raised,RoundedCornerShape(8.dp)).border(1.dp,PcAccent,RoundedCornerShape(8.dp)).padding(14.dp,9.dp).semantics{contentDescription="导航提示：$label"})}
  }
 }
@@ -62,22 +73,20 @@ private fun navSelected(m:PtvModel,id:String):Boolean {
   if(playing)drawCircle(brush=flowBrush,radius=w*.47f,style=androidx.compose.ui.graphics.drawscope.Stroke(1.5.dp.toPx()))
  }
 }
-@Composable internal fun NavigationRail(m:PtvModel){val c=LocalCinema.current;val pinned=remember(m.preferencesRevision){m.config.flag("drawer_pinned")}
- Column(Modifier.width(if(pinned)230.dp else 72.dp).fillMaxHeight().background(c.surface).padding(8.dp),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(5.dp)){
-  Column(Modifier.fillMaxWidth().padding(vertical=4.dp),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(2.dp)){
-   Box(Modifier.size(if(pinned)42.dp else 46.dp).border(1.5.dp,Brush.horizontalGradient(listOf(Color(0xff55d8ff),Color(0xffb75cff))),RoundedCornerShape(10.dp)),contentAlignment=Alignment.Center){
-    Image(painterResource(R.drawable.brand),"Ptvbox",Modifier.size(if(pinned)32.dp else 36.dp))
-   }
-   Text("Ptvbox",color=c.text,fontSize=if(pinned)15.sp else 10.sp,maxLines=1)
+@Composable internal fun NavigationRail(m:PtvModel,modifier:Modifier=Modifier,searchFocus:FocusRequester?=null){val c=LocalCinema.current;val pinned=remember(m.preferencesRevision){m.config.flag("drawer_pinned")}
+ Column(modifier.width(if(pinned)230.dp else 72.dp).fillMaxHeight().background(c.surface).padding(8.dp),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(5.dp)){
+  Column(Modifier.fillMaxWidth().padding(vertical=4.dp),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(3.dp)){
+   Image(painterResource(R.drawable.brand),"Ptvbox",Modifier.size(if(pinned)44.dp else 46.dp).clip(RoundedCornerShape(11.dp)))
+   Text("Ptvbox",color=c.text,fontSize=if(pinned)15.sp else 10.sp,fontWeight=FontWeight.SemiBold,maxLines=1)
    Text("v${BuildConfig.VERSION_NAME}",color=c.muted,fontSize=if(pinned)11.sp else 8.sp,maxLines=1)
   }
-  Spacer(Modifier.height(8.dp))
-  LazyColumn(Modifier.weight(1f),contentPadding=PaddingValues(top=10.dp),verticalArrangement=Arrangement.spacedBy(4.dp)){
+  Spacer(Modifier.height(6.dp))
+  LazyColumn(Modifier.weight(1f),contentPadding=PaddingValues(top=6.dp),verticalArrangement=Arrangement.spacedBy(4.dp)){
    if(m.current!=null)item(key="now-playing"){RailTile050("返回播放",false,pinned,{m.showPlayer()}){NowPlayingTriangle(m.playing)}}
-   items(navItems,key={it.id}){n->RailTile050(n.label,navSelected(m,n.id),pinned,{navigate(m,n.id)}){NavIcon(n)}}
+   items(navItems,key={it.id}){n->val itemMod=if(n.id=="search"&&searchFocus!=null)Modifier.focusRequester(searchFocus)else Modifier;RailTile050(n.label,navSelected(m,n.id),pinned,{navigate(m,n.id)},itemMod){active->NavIcon(n,active)}}
   }
-  RailTile050("站点",m.screen=="sites",pinned,{m.utility("sites")}){Image(painterResource(R.drawable.pc_sites),null,Modifier.size(24.dp))}
-  RailTile050("设置",m.screen=="settings",pinned,{m.utility("settings")}){Image(painterResource(R.drawable.pc_settings),null,Modifier.size(26.dp))}
+  RailTile050("站点",m.screen=="sites",pinned,{m.utility("sites")}){active->Image(painterResource(R.drawable.pc_sites),null,Modifier.size(24.dp),colorFilter=ColorFilter.tint(if(active)PcAccent else Color(0xff94a3b8)))}
+  RailTile050("设置",m.screen=="settings",pinned,{m.utility("settings")}){active->Image(painterResource(R.drawable.pc_settings),null,Modifier.size(24.dp),colorFilter=ColorFilter.tint(if(active)PcAccent else Color(0xff94a3b8)))}
  }
 }
 @Composable internal fun NavigationDrawer(m:PtvModel,close:()->Unit){val c=LocalCinema.current;val first=remember{FocusRequester()};LaunchedEffect(Unit){withFrameNanos{};first.requestFocus()}
@@ -91,18 +100,69 @@ private fun navSelected(m:PtvModel,id:String):Boolean {
   Action("设置",{m.utility("settings");close()},Modifier.fillMaxWidth());Text("Ptvbox ${BuildConfig.VERSION_NAME}",color=c.muted,fontSize=11.sp)
  }}}
 }
-@Composable internal fun DiscoveryTabs(m:PtvModel){Row(horizontalArrangement=Arrangement.spacedBy(10.dp),verticalAlignment=Alignment.CenterVertically){listOf("豆瓣" to "douban","Netflix标签" to "netflix","TMDB目录" to "tmdb").forEach{(n,p)->InputButton({m.changeFeed(p=p)},shape=ButtonDefaults.shape(shape=RoundedCornerShape(8.dp)),colors=ptvButtonColors(if(m.provider==p)Color(0xff5b3f86)else Color.Transparent,LocalCinema.current.text),contentPadding=PaddingValues(10.dp)){Image(painterResource(when(p){"douban"->R.drawable.pc_douban;"netflix"->R.drawable.pc_netflix_wordmark;else->R.drawable.pc_tmdb}),n,Modifier.width(if(p=="netflix")100.dp else 85.dp).height(25.dp))}}};Text(if(m.provider=="netflix")"豆瓣 Netflix 标签专题 · 非Netflix官方榜单"else"按${if(m.provider=="tmdb")"TMDB"else"豆瓣"}推荐选片，在详情页查找可播放来源",color=LocalCinema.current.muted,fontSize=11.sp)}
+@Composable internal fun DiscoveryTabs(m:PtvModel){
+ val c=LocalCinema.current
+ data class SourceStyle(val id:String,val brand:String,val sub:String,val bg:Color,val border:Color,val accent:Color)
+ val tabs=listOf(
+  SourceStyle("douban","豆瓣","DOUBAN",Color(0xff113829),Color(0xff22c55e),Color(0xff34d399)),
+  SourceStyle("netflix","NETFLIX","专题",Color(0xff3e121a),Color(0xffef4444),Color(0xfffb7185)),
+  SourceStyle("tmdb","TMDB","目录",Color(0xff0e3047),Color(0xff38bdf8),Color(0xff7dd3fc))
+ )
+ Row(horizontalArrangement=Arrangement.spacedBy(12.dp),verticalAlignment=Alignment.CenterVertically){
+  Row(
+   Modifier.background(c.surface,RoundedCornerShape(14.dp)).border(1.dp,c.border.copy(alpha=.9f),RoundedCornerShape(14.dp)).padding(horizontal=6.dp,vertical=5.dp),
+   horizontalArrangement=Arrangement.spacedBy(6.dp),
+   verticalAlignment=Alignment.CenterVertically
+  ){
+   tabs.forEach{t->
+    val active=m.provider==t.id
+    InputButton(
+     {m.changeFeed(p=t.id)},
+     Modifier.border(if(active)1.5.dp else 1.dp,if(active)t.border else Color.Transparent,RoundedCornerShape(10.dp)).selection051(active),
+     shape=ButtonDefaults.shape(RoundedCornerShape(10.dp)),
+     focusRadius=10.dp,
+     colors=ptvButtonColors(if(active)t.bg else Color.Transparent,if(active)Color.White else c.muted),
+     contentPadding=PaddingValues(horizontal=14.dp,vertical=8.dp)
+    ){
+     Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(7.dp)){
+      Box(Modifier.size(7.dp).background(t.accent.copy(alpha=if(active)1f else .5f),androidx.compose.foundation.shape.CircleShape))
+      Text(t.brand,color=if(active)Color.White else c.text.copy(alpha=.72f),fontSize=14.sp,fontWeight=FontWeight.Bold,maxLines=1)
+      Text(t.sub,color=if(active)t.accent else c.muted.copy(alpha=.7f),fontSize=10.sp,fontWeight=FontWeight.SemiBold,maxLines=1)
+     }
+    }
+   }
+  }
+  Text(if(m.provider=="netflix")"豆瓣 Netflix 标签专题 · 非Netflix官方榜单"else"按${if(m.provider=="tmdb")"TMDB"else"豆瓣"}推荐选片，点击海报查看资料与片源",color=c.muted,fontSize=11.sp,maxLines=1,overflow=TextOverflow.Ellipsis)
+ }
+}
 @Composable private fun HomeCategories(m:PtvModel){FlowRow(horizontalArrangement=Arrangement.spacedBy(8.dp),verticalArrangement=Arrangement.spacedBy(6.dp)){PcChip(if(m.includeUpcoming)"✓ 显示未上映"else"显示未上映",m.includeUpcoming,m::toggleUpcoming);buildList{add(Triple("热门剧集","tv","热门"));add(Triple("热门电影","movie","热门"));add(Triple("最新电影","movie","最新"));add(Triple("最新剧集","tv","最新"));add(Triple("动画作品","tv","动画"));if(m.provider!="netflix")add(Triple("TOP250","movie","TOP250"))}.forEach{(n,k,c)->PcChip(n,m.kind==k&&m.category==c,{m.changeFeed(k=k,c=c)})}}}
 @Composable internal fun CategoryTabs(m:PtvModel){FlowRow(horizontalArrangement=Arrangement.spacedBy(7.dp),verticalArrangement=Arrangement.spacedBy(6.dp)){buildList{addAll(listOf("热门","最新","高分","动画","纪录片","综艺"));if(m.provider!="netflix")add("TOP250")}.forEach{c->PcChip(c,m.category==c,{m.changeFeed(k=if(c=="TOP250")"movie"else m.kind,c=c)})}}}
 
-@Composable internal fun CinemaHome(m:PtvModel){val c=LocalCinema.current;val state=rememberLazyGridState();val rows=m.feed.filter{m.includeUpcoming||!it.isUpcoming()};var heroIndex by rememberSaveable(m.provider,m.kind,m.category){mutableIntStateOf(0)};val hero=rows.getOrNull(heroIndex.coerceAtMost((rows.size-1).coerceAtLeast(0)))
- LazyVerticalGrid(GridCells.Adaptive(138.dp),state=state,modifier=Modifier.pagedDown051(state,rows.map{it.key},{m.focusWork.takeIf{m.focusRow=="home"}},m.busy,m.feedHasMore){m.loadFeed(true)},horizontalArrangement=Arrangement.spacedBy(16.dp),verticalArrangement=Arrangement.spacedBy(18.dp),contentPadding=PaddingValues(8.dp)){
-  item(key="providers",span={GridItemSpan(maxLineSpan)}){Column(verticalArrangement=Arrangement.spacedBy(12.dp)){DiscoveryTabs(m);HomeCategories(m)}}
-  hero?.let{w->item(key="hero",span={GridItemSpan(maxLineSpan)}){Hero053(m,w,heroIndex,rows.take(5).size,state.layoutInfo.visibleItemsInfo.any{it.key=="hero"}){heroIndex=it}}}
-  if(m.user.continues.isNotEmpty())item(key="continue",span={GridItemSpan(maxLineSpan)}){ContinueRow(m)}
-  item(key="heading",span={GridItemSpan(maxLineSpan)}){PcSection("${if(m.kind=="movie")"电影"else"剧集"} · ${m.category}",if(m.busy)"正在更新海报…"else"${rows.size}部作品 · 选择海报查看资料与片源")}
-  items(rows,key={it.key}){w->CinemaPoster(m,w,"home")}
-  item(key="more",span={GridItemSpan(maxLineSpan)}){if(rows.isEmpty())PcEmpty("正在准备推荐","网络不可用时保留已缓存资料，可切换来源或搜索作品");MoreHint051(m.busy,m.feedHasMore){m.loadFeed(true)}}
+@OptIn(ExperimentalFoundationApi::class)
+internal object HomeBringIntoViewSpec:BringIntoViewSpec{
+ override fun calculateScrollDistance(offset:Float,size:Float,containerSize:Float):Float{
+  val trailingEdge=offset+size
+  val topMargin=containerSize*0.06f
+  val bottomMargin=containerSize*0.14f
+  return when{
+   offset<topMargin->offset-topMargin
+   trailingEdge>containerSize-bottomMargin->trailingEdge-(containerSize-bottomMargin)
+   else->0f
+  }
+ }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable internal fun CinemaHome(m:PtvModel){val c=LocalCinema.current;val state=rememberLazyGridState();val scope=rememberCoroutineScope();val rows=m.feed.filter{m.includeUpcoming||!it.isUpcoming()};var heroIndex by rememberSaveable(m.provider,m.kind,m.category){mutableIntStateOf(0)};val hero=rows.getOrNull(heroIndex.coerceAtMost((rows.size-1).coerceAtLeast(0)))
+ CompositionLocalProvider(LocalBringIntoViewSpec provides HomeBringIntoViewSpec){
+  LazyVerticalGrid(GridCells.Adaptive(138.dp),state=state,modifier=Modifier.pagedDown051(state,rows.map{it.key},{m.focusWork.takeIf{m.focusRow=="home"}},m.busy,m.feedHasMore){m.loadFeed(true)},horizontalArrangement=Arrangement.spacedBy(16.dp),verticalArrangement=Arrangement.spacedBy(14.dp),contentPadding=PaddingValues(8.dp)){
+   item(key="providers",span={GridItemSpan(maxLineSpan)}){Column(verticalArrangement=Arrangement.spacedBy(8.dp)){DiscoveryTabs(m);HomeCategories(m)}}
+   hero?.let{w->item(key="hero",span={GridItemSpan(maxLineSpan)}){Hero053(m,w,heroIndex,rows.take(5).size,state.layoutInfo.visibleItemsInfo.any{it.key=="hero"},onEnter={if(state.firstVisibleItemIndex>0||state.firstVisibleItemScrollOffset>0)scope.launch{state.animateScrollToItem(0)}}){heroIndex=it}}}
+   if(m.user.continues.isNotEmpty())item(key="continue",span={GridItemSpan(maxLineSpan)}){ContinueRow(m)}
+   item(key="heading",span={GridItemSpan(maxLineSpan)}){PcSection("${if(m.kind=="movie")"电影"else"剧集"} · ${m.category}",if(m.busy)"正在更新海报…"else"${rows.size}部作品 · 选择海报查看资料与片源")}
+   items(rows,key={it.key}){w->CinemaPoster(m,w,"home")}
+   item(key="more",span={GridItemSpan(maxLineSpan)}){if(rows.isEmpty())PcEmpty("正在准备推荐","网络不可用时保留已缓存资料，可切换来源或搜索作品");MoreHint051(m.busy,m.feedHasMore){m.loadFeed(true)}}
+  }
  }
 }
 @Composable internal fun CinemaPoster(m:PtvModel,original:Work,row:String){val (w,art)=presented050(m,original);val c=LocalCinema.current
@@ -119,13 +179,13 @@ private fun navSelected(m:PtvModel,id:String):Boolean {
   PcRatings(w,links=m.linkedRatings[w.ratingViewKey],tmdbConfigured=m.tmdbConfigured,primary=remember(m.preferencesRevision){m.config.text("primary_rating","douban")},secondary=remember(m.preferencesRevision){m.config.flag("secondary_rating",true)});Text(w.title,color=c.text,fontSize=14.sp,maxLines=2,overflow=TextOverflow.Ellipsis);Text(w.year,color=c.muted,fontSize=11.sp)
  }
 }
-@Composable internal fun ContinueRow(m:PtvModel){val c=LocalCinema.current;Column(verticalArrangement=Arrangement.spacedBy(11.dp)){
+@Composable internal fun ContinueRow(m:PtvModel){val c=LocalCinema.current;val searchFocus=LocalSearchRailFocus.current?:LocalRailFocus.current;val list=m.user.continues.take(30);Column(verticalArrangement=Arrangement.spacedBy(8.dp)){
  PcSection("继续观看","从上次选择的作品和单集继续")
- LazyRow(horizontalArrangement=Arrangement.spacedBy(14.dp),contentPadding=PaddingValues(5.dp)){items(m.user.continues.take(30),key={it.work.key}){w->Column(Modifier.width(248.dp).background(c.surface,RoundedCornerShape(10.dp)).padding(8.dp),verticalArrangement=Arrangement.spacedBy(6.dp)){
-  InputButton({m.focusRow="continue";m.open(w.work)},Modifier.fillMaxWidth().then(workFocus(m,w.work,"continue")),shape=ButtonDefaults.shape(shape=RoundedCornerShape(8.dp)),contentPadding=PaddingValues(0.dp)){Box(Modifier.fillMaxWidth().aspectRatio(16f/9f)){
-   AsyncImage(w.work.backdrop.ifBlank{w.work.poster},w.work.title,Modifier.fillMaxSize(),contentScale=ContentScale.Crop);Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Transparent,Color(0xdc10111d)))));Text(w.work.title,color=Color.White,maxLines=2,fontSize=16.sp,modifier=Modifier.align(Alignment.BottomStart).padding(10.dp))
-  }};PcProgress(w.progress);Text("S${w.work.season} · ${w.episode} · ${clock(w.position)}",color=c.text,fontSize=12.sp);Text(if(w.duration>0)"剩余 ${clock((w.duration-w.position).coerceAtLeast(0))}"else"总时长待确认",color=c.muted,fontSize=11.sp)
-  Row(horizontalArrangement=Arrangement.spacedBy(5.dp)){PcChip("续播",false,{m.play(w.work,w.episode)});PcChip("移除",false,{m.hideContinue(w.work)});PcChip("已看",false,{m.setWatchState(w.work,WatchState.COMPLETED)})}
+ LazyRow(horizontalArrangement=Arrangement.spacedBy(14.dp),contentPadding=PaddingValues(2.dp)){itemsIndexed(list,key={_,it->it.work.key}){index,w->val leftTarget=if(index==0&&searchFocus!=null)Modifier.focusProperties{left=searchFocus}else Modifier;val rem=(w.duration-w.position).coerceAtLeast(0);Column(Modifier.width(244.dp).background(c.surface,RoundedCornerShape(10.dp)).padding(8.dp),verticalArrangement=Arrangement.spacedBy(5.dp)){
+  InputButton({m.focusRow="continue";m.open(w.work)},Modifier.fillMaxWidth().then(leftTarget).then(workFocus(m,w.work,"continue")),shape=ButtonDefaults.shape(shape=RoundedCornerShape(8.dp)),contentPadding=PaddingValues(0.dp)){Box(Modifier.fillMaxWidth().aspectRatio(16f/9f)){
+   AsyncImage(w.work.backdrop.ifBlank{w.work.poster},w.work.title,Modifier.fillMaxSize(),contentScale=ContentScale.Crop);Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Transparent,Color(0xdc10111d)))));Text(w.work.title,color=Color.White,maxLines=2,fontSize=15.sp,modifier=Modifier.align(Alignment.BottomStart).padding(9.dp))
+  }};PcProgress(w.progress);Text("S${w.work.season} · ${w.episode} · ${clock(w.position)}"+(if(w.duration>0&&rem>0)" · 剩 ${clock(rem)}"else""),color=c.text,fontSize=11.sp,maxLines=1,overflow=TextOverflow.Ellipsis)
+  Row(horizontalArrangement=Arrangement.spacedBy(5.dp)){PcChip("续播",false,{m.play(w.work,w.episode)},leftTarget);PcChip("移除",false,{m.hideContinue(w.work)});PcChip("已看",false,{m.setWatchState(w.work,WatchState.COMPLETED)})}
  }}}
 }}
 

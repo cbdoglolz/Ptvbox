@@ -47,6 +47,7 @@ internal fun InputButton(
     longPressMillis:Long=3000,
     colors:ButtonColors?=null,
     shape:ButtonShape=ButtonDefaults.shape(),
+    focusRadius:androidx.compose.ui.unit.Dp=10.dp,
     scale:ButtonScale?=null,
     contentPadding:PaddingValues=ButtonDefaults.ContentPadding,
     content:@Composable RowScope.()->Unit
@@ -75,7 +76,7 @@ internal fun InputButton(
         enabled=enabled,
         scale=scale?:ButtonDefaults.scale(1f,1.015f,.99f),
         glow=ButtonDefaults.glow(focusedGlow=Glow(PtvFocusGlow,5.dp)),
-        border=ButtonDefaults.border(focusedBorder=Border(BorderStroke(1.5.dp,PtvFocusBorder),0.dp,RoundedCornerShape(10.dp))),
+        border=ButtonDefaults.border(focusedBorder=Border(BorderStroke(1.5.dp,PtvFocusBorder),0.dp,RoundedCornerShape(focusRadius))),
         colors=actualColors,
         shape=shape,
         contentPadding=contentPadding,

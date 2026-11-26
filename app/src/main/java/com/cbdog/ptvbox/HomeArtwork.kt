@@ -24,17 +24,21 @@ class HomeArtwork(private val context:Context){
         var total=files.sumOf{it.length()}
         for(file in files.sortedBy{it.lastModified()}){if(total<=100L*1024*1024)break;if(file.name !in protectedNames){val size=file.length();if(file.delete())total-=size}}
     }
-    suspend fun uri(work:Work):Uri?=withContext(Dispatchers.IO){
-        val source=Uri.parse(work.poster);val host=source.host.orEmpty().lowercase()
-        if(source.scheme!="https"||!(host.matches(Regex("img[0-9]*\\.doubanio\\.com"))||host=="image.tmdb.org"))return@withContext null
-        val hash=MessageDigest.getInstance("SHA-256").digest(work.poster.toByteArray()).joinToString(""){"%02x".format(it)}
+    suspend fun uri(work:Work):Uri?=uriFromUrl(work.poster)
+    suspend fun uriFromUrl(rawUrl:String,landscape:Boolean=false):Uri?=withContext(Dispatchers.IO){
+        if(rawUrl.isBlank())return@withContext null
+        val source=Uri.parse(rawUrl);val host=source.host.orEmpty().lowercase()
+        val allowed=source.scheme=="https"&&(host.matches(Regex("img[0-9]*\\.doubanio\\.com"))||host=="image.tmdb.org"||host.endsWith(".bgm.tv")||host.endsWith(".anilist.co"))
+        if(!allowed)return@withContext null
+        val hash=MessageDigest.getInstance("SHA-256").digest((rawUrl+(if(landscape)"#16x9"else"")).toByteArray()).joinToString(""){"%02x".format(it)}
         val dir=File(context.filesDir,"home-art").apply{mkdirs()};val target=File(dir,"$hash.jpg")
         if(!target.isFile)downloads.withPermit{
             if(!target.isFile)runCatching{
-                val bytes=Net.bytes(work.poster,mapOf("Referer" to "https://movie.douban.com/","User-Agent" to "Mozilla/5.0"),2_000_000)
+                val bytes=Net.bytes(rawUrl,mapOf("Referer" to "https://movie.douban.com/","User-Agent" to "Mozilla/5.0"),2_500_000)
                 val bounds=BitmapFactory.Options().apply{inJustDecodeBounds=true};BitmapFactory.decodeByteArray(bytes,0,bytes.size,bounds)
                 check(bounds.outWidth in 16..8192&&bounds.outHeight in 16..8192)
-                val options=BitmapFactory.Options().apply{var sample=1;while(bounds.outWidth/sample>640||bounds.outHeight/sample>960)sample*=2;inSampleSize=sample}
+                val maxW=if(landscape)960 else 640;val maxH=if(landscape)540 else 960
+                val options=BitmapFactory.Options().apply{var sample=1;while(bounds.outWidth/sample>maxW||bounds.outHeight/sample>maxH)sample*=2;inSampleSize=sample}
                 val bitmap=BitmapFactory.decodeByteArray(bytes,0,bytes.size,options)?:error("Invalid poster")
                 val temporary=File.createTempFile("poster-",".tmp",dir)
                 try{temporary.outputStream().use{check(bitmap.compress(Bitmap.CompressFormat.JPEG,88,it))};if(!temporary.renameTo(target)&&!target.isFile)error("Poster save failed")}finally{temporary.delete();bitmap.recycle()}

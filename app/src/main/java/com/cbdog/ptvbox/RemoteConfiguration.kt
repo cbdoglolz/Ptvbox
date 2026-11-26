@@ -28,19 +28,25 @@ import com.google.zxing.qrcode.QRCodeWriter
     val qrFocus=remember{FocusRequester()}
     var qrFocused by remember{mutableStateOf(false)}
     var started by remember{mutableStateOf(m.remoteUrl.isNotBlank())}
+    var autoFocusClose by remember{mutableStateOf(false)}
     LaunchedEffect(m.remoteUrl){
         if(m.remoteUrl.isNotBlank()){
             started=true
-            androidx.compose.runtime.withFrameNanos{}
-            runCatching{closeFocus.requestFocus()}
-        }else started=false
+            if(autoFocusClose){
+                autoFocusClose=false
+                androidx.compose.runtime.withFrameNanos{}
+                runCatching{closeFocus.requestFocus()}
+            }
+        }else{
+            started=false
+            autoFocusClose=false
+        }
     }
     Column(verticalArrangement=Arrangement.spacedBy(10.dp)){
         if(m.remoteUrl.isBlank()){
             Text("同一WiFi下扫码配置；会话10分钟有效，仅扫码设备可写入。",color=c.muted,fontSize=13.sp)
             Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){
-                Action(if(started)"正在生成二维码…"else"点击扫码",{if(!started){started=true;m.startRemoteConfig()}})
-                ExternalButton("申请TMDB Key","https://www.themoviedb.org/settings/api")
+                Action(if(started)"正在生成二维码…"else"点击扫码",{if(!started){started=true;autoFocusClose=true;m.startRemoteConfig()}})
             }
         }else{
             val paired=m.remoteUrl+"&page="+if(section=="remote")"configuration"else section
@@ -54,8 +60,8 @@ import com.google.zxing.qrcode.QRCodeWriter
                         maxLines=2
                     )
                     Text("手机与电视需处于同一局域网。",color=c.muted,fontSize=12.sp)
+                    Text("本地自签 HTTPS 加密，手机浏览器提示「不安全」属正常，点「继续访问」即可。",color=c.muted,fontSize=11.5.sp)
                     Text("证书指纹：${m.remoteFingerprint.take(23)}…",color=c.muted,fontSize=11.sp)
-                    ExternalButton("申请TMDB Key","https://www.themoviedb.org/settings/api")
                 }
                 InputButton(
                     {runCatching{context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW,android.net.Uri.parse(paired)))}.onFailure{m.message("此设备未安装可打开链接的浏览器")}},

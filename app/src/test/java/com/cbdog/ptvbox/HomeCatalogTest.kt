@@ -4,6 +4,13 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class HomeCatalogTest {
-    @Test fun optionalTmdbChannels(){assertEquals(6,HomeCatalog.forCredentials(false).size);assertEquals(8,HomeCatalog.forCredentials(true).size);assertFalse(HomeCatalog.forCredentials(false).any{it.provider=="tmdb"})}
-    @Test fun stableDistinctCategories(){assertEquals(8,HomeCatalog.channels.map{it.key}.distinct().size);assertEquals(setOf("动画","动画最新"),HomeCatalog.channels.filter{it.key.startsWith("anime-")}.map{it.category}.toSet());assertEquals(setOf("movie","tv"),HomeCatalog.channels.filter{it.provider=="netflix"}.map{it.kind}.toSet())}
+    @Test fun optionalTmdbChannels(){
+        assertEquals(5,HomeCatalog.forCredentials(false).size)
+        assertEquals(5,HomeCatalog.forCredentials(true).size)
+        assertTrue(HomeCatalog.channels.any{it.key=="continue-watching"&&it.kind=="continue"})
+    }
+    @Test fun stableDistinctCategories(){
+        assertEquals(5,HomeCatalog.channels.map{it.key}.distinct().size)
+        assertEquals(listOf("continue-watching","douban-tv","douban-movie","anime-hot","netflix-tv"),HomeCatalog.channels.map{it.key})
+    }
 }

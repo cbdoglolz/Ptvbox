@@ -29,11 +29,24 @@ fun lastRow051(focusKey:Any?,dataKeys:Set<Any>,rows:List<Triple<Any,Int,Int>>):B
 fun Modifier.pagedDown051(state:LazyGridState,keys:List<Any>,focused:()->Any?,busy:Boolean,more:Boolean,load:()->Unit)=onPreviewKeyEvent{e->if(e.key==Key.DirectionDown&&lastRow051(focused(),keys.toSet(),state.layoutInfo.visibleItemsInfo.map{Triple(it.key,it.row,it.index)})){if(e.type==KeyEventType.KeyDown&&e.nativeKeyEvent.repeatCount==0&&!busy&&more)load();true}else false}
 @Composable fun MoreHint051(busy:Boolean,more:Boolean,load:()->Unit){Text(if(busy)"正在加载更多…"else if(more)"↓ 最后一行再按向下加载更多 · 触摸可点击这里"else"已显示当前全部内容",color=if(more)PcAccent else LocalCinema.current.muted,fontSize=13.sp,modifier=Modifier.fillMaxWidth().background(LocalCinema.current.surface,RoundedCornerShape(8.dp)).clickable(enabled=!busy&&more,onClick=load).padding(14.dp))}
 object Episodes051 {
- fun names(kind:String,current:String,selected:Candidate?,candidates:List<Candidate>,roads:Map<String,List<Episode>>):List<String>{
+ fun names(kind:String,current:String,selected:Candidate?,candidates:List<Candidate>,roads:Map<String,List<Episode>>,fallbackEpisodes:List<String> = emptyList()):List<String>{
   val entries=selected?.let{roads[it.sourceId]?:roads[it.site.key+"|"+it.road]}.orEmpty()
-  if(entries.size>1)return entries.map{it.name}.distinct()
-  if(kind=="movie")return listOf(current.ifBlank{"正片"})
-  return (listOf(current)+candidates.filter{Identity.episode(it.episode.name)!=null}.map{it.episode.name}).filter{it.isNotBlank()}.distinct().sortedBy{Identity.episode(it)?:Int.MAX_VALUE}
+  if(kind=="movie")return if(entries.size>1)entries.map{it.name}.distinct()else listOf(current.ifBlank{"正片"})
+  val entryNames=entries.map{it.name}.distinct()
+  val entriesContainCurrent=current.isBlank()||entryNames.any{Identity.sameEpisode(it,current)}
+  if(entryNames.size>1&&entriesContainCurrent&&fallbackEpisodes.size<=entryNames.size)return entryNames
+  val bestRoad=roads.values.maxByOrNull{it.size}.orEmpty().map{it.name}.distinct()
+  val bestContainsCurrent=current.isBlank()||bestRoad.any{Identity.sameEpisode(it,current)}
+  if(fallbackEpisodes.size>1&&(fallbackEpisodes.size>maxOf(entryNames.size,bestRoad.size)||(!entriesContainCurrent&&!bestContainsCurrent))){
+   val merged=if(current.isNotBlank()&&fallbackEpisodes.none{Identity.sameEpisode(it,current)})fallbackEpisodes+current else fallbackEpisodes
+   return merged.distinct().sortedBy{Identity.episode(it)?:Int.MAX_VALUE}
+  }
+  if(entryNames.size>1&&entriesContainCurrent)return entryNames
+  if(bestRoad.size>1&&bestContainsCurrent)return bestRoad
+  val fromCandidates=(listOf(current)+candidates.filter{Identity.episode(it.episode.name)!=null}.map{it.episode.name}).filter{it.isNotBlank()}.distinct()
+  if(fromCandidates.size>1)return fromCandidates.sortedBy{Identity.episode(it)?:Int.MAX_VALUE}
+  if(fallbackEpisodes.size>1)return fallbackEpisodes.distinct().sortedBy{Identity.episode(it)?:Int.MAX_VALUE}
+  return fromCandidates.sortedBy{Identity.episode(it)?:Int.MAX_VALUE}
  }
  fun fallbackPosition(current:Long,target:Long)=maxOf(current,target,0)
 }

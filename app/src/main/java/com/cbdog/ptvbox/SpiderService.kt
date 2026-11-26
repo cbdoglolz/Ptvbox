@@ -58,7 +58,7 @@ class SpiderClient(input:Context){
     private val reply=Messenger(object:Handler(Looper.getMainLooper()){override fun handleMessage(msg:Message){pending.remove(msg.arg1)?.complete(msg.data)}})
     private val connection=object:ServiceConnection{
         override fun onServiceConnected(name:ComponentName,binder:IBinder){val messenger=Messenger(binder);remote=messenger;connected.complete(messenger)}
-        override fun onServiceDisconnected(name:ComponentName){remote=null;connected=CompletableDeferred();pending.values.forEach{it.completeExceptionally(IOException("插件进程退出，播放器保留；可重试当前站点"))};pending.clear()}
+        override fun onServiceDisconnected(name:ComponentName){remote=null;if(bound){runCatching{context.unbindService(this)};bound=false};connected=CompletableDeferred();pending.values.forEach{it.completeExceptionally(IOException("插件进程退出，播放器保留；可重试当前站点"))};pending.clear()}
     }
     private suspend fun call(site:Site,op:Int,fill:Bundle.()->Unit):String {
         val target=lock.withLock{remote?:run{

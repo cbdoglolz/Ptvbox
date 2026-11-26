@@ -20,6 +20,7 @@ import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.*
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.graphics.Color
@@ -61,18 +62,24 @@ class MainActivity:ComponentActivity(){
 }
 
 @Composable internal fun Action(label:String,onClick:()->Unit,modifier:Modifier=Modifier,maxLines:Int=2,selected:Boolean=false){val c=LocalCinema.current;InputButton(onClick=onClick,modifier=modifier.selection051(selected),shape=ButtonDefaults.shape(shape=RoundedCornerShape(8.dp)),colors=ptvButtonColors(c.raised,c.text),contentPadding=PaddingValues(14.dp,10.dp)){Text(label,fontSize=14.sp,maxLines=maxLines)}}
-@Composable internal fun Entry(value:String,changed:(String)->Unit,hint:String,secret:Boolean=false,modifier:Modifier=Modifier){val c=LocalCinema.current;val keyboard=LocalSoftwareKeyboardController.current;BasicTextField(value,changed,keyboardOptions=KeyboardOptions(showKeyboardOnFocus=false),modifier=modifier.onPreviewKeyEvent{if(it.type==KeyEventType.KeyUp&&it.key in listOf(Key.DirectionCenter,Key.Enter)){keyboard?.show();true}else false}.fillMaxWidth().background(c.raised,RoundedCornerShape(8.dp)).border(1.dp,c.border,RoundedCornerShape(8.dp)).padding(13.dp),singleLine=true,textStyle=TextStyle(color=c.text,fontSize=16.sp),visualTransformation=if(secret)PasswordVisualTransformation()else VisualTransformation.None,decorationBox={inner->Box{if(value.isEmpty())Text(hint,color=c.muted,fontSize=14.sp);inner()}})}
+@Composable internal fun Entry(value:String,changed:(String)->Unit,hint:String,secret:Boolean=false,modifier:Modifier=Modifier){val c=LocalCinema.current;val keyboard=LocalSoftwareKeyboardController.current;var focused by remember{mutableStateOf(false)};BasicTextField(value,changed,keyboardOptions=KeyboardOptions(showKeyboardOnFocus=false),cursorBrush=androidx.compose.ui.graphics.SolidColor(PcCyan),modifier=modifier.onFocusChanged{focused=it.isFocused}.onPreviewKeyEvent{if(it.type==KeyEventType.KeyUp&&it.key in listOf(Key.DirectionCenter,Key.Enter)){keyboard?.show();true}else false}.fillMaxWidth().background(if(focused)androidx.compose.ui.graphics.Color(0xFF2D3352)else c.raised,RoundedCornerShape(8.dp)).border(if(focused)2.dp else 1.dp,if(focused)PtvFocusBorder else androidx.compose.ui.graphics.SolidColor(c.border),RoundedCornerShape(8.dp)).padding(13.dp),singleLine=true,textStyle=TextStyle(color=c.text,fontSize=16.sp),visualTransformation=if(secret)PasswordVisualTransformation()else VisualTransformation.None,decorationBox={inner->Box{if(value.isEmpty())Text(if(focused)"$hint（按确认键输入）"else hint,color=if(focused)PcCyan else c.muted,fontSize=14.sp);inner()}})}
+
+internal val LocalRailFocus=staticCompositionLocalOf<FocusRequester?>{null}
+internal val LocalSearchRailFocus=staticCompositionLocalOf<FocusRequester?>{null}
 
 @Composable private fun TvApp(m:PtvModel,voice:()->Unit){
     val pages=rememberSaveableStateHolder()
     val contentFocus=remember{FocusRequester()}
+    val railFocus=remember{FocusRequester()}
+    val searchRailFocus=remember{FocusRequester()}
     BackHandler{m.back()}
+    CompositionLocalProvider(LocalRailFocus provides railFocus, LocalSearchRailFocus provides searchRailFocus){
     Box(Modifier.fillMaxSize().background(LocalCinema.current.background).onPreviewKeyEvent{if(it.type==KeyEventType.KeyDown&&it.key in listOf(Key.DirectionUp,Key.DirectionDown,Key.DirectionLeft,Key.DirectionRight))m.restoreFocus="";false}){
         Row(Modifier.fillMaxSize()){
-            if(m.screen!="player")NavigationRail(m)
-            Column(Modifier.weight(1f).fillMaxHeight().padding(if(m.screen in listOf("player","detail"))0.dp else 18.dp).focusRequester(contentFocus).focusRestorer().focusGroup()){
+            if(m.screen!="player")NavigationRail(m,Modifier.focusRequester(railFocus),searchRailFocus)
+            Column(Modifier.weight(1f).fillMaxHeight().padding(if(m.screen in listOf("player","detail"))0.dp else 18.dp).focusRequester(contentFocus).focusRestorer()){
                 Box(Modifier.weight(1f)){
-                pages.SaveableStateProvider("${m.screen}|${if(m.screen=="detail")m.detail?.key else if(m.screen=="credits")m.creditPage055?.id else ""}|${m.provider}|${m.kind}|${m.category}"){
+                pages.SaveableStateProvider("${m.screen}|${if(m.screen=="detail")m.detail?.key else if(m.screen=="credits")m.creditPage055?.id else ""}"){
                     when(m.screen){
                         "player"->CinemaPlayer(m)
                         "detail"->if(m.detail?.provider=="live")LiveDetail050(m)else CinemaDetail040(m)
@@ -93,7 +100,8 @@ class MainActivity:ComponentActivity(){
         }}
 
         if(m.notice.isNotEmpty()&&m.screen!="player")Text(m.notice,color=LocalCinema.current.text,fontSize=14.sp,modifier=Modifier.align(Alignment.TopEnd).padding(20.dp).widthIn(max=400.dp).background(LocalCinema.current.raised).padding(12.dp))
-    }
+        if(m.screen!="player")NotificationGuideDialog102(m)
+    }}
 }
 
 @Composable internal fun Poster(m:PtvModel,w:Work){CinemaPoster(m,w,if(m.screen=="home")"home"else m.screen)}

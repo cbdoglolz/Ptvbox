@@ -26,11 +26,11 @@ import androidx.tv.material3.*
 
 private val LocalControlRestore=staticCompositionLocalOf<Pair<String,()->Unit>>{"" to {}}
 private val LocalCompactPlayer=staticCompositionLocalOf{false}
-@Composable internal fun PlaybackChrome(m:PtvModel,menu:(String)->Unit,hide:()->Unit,pictureInPicture:()->Unit,toolbarModifier:Modifier=Modifier,restoreTarget:String="",restored:()->Unit={},onFocusState:(Boolean)->Unit={}){
+@Composable internal fun PlaybackChrome(m:PtvModel,menu:(String)->Unit,hide:()->Unit,pictureInPicture:()->Unit,toolbarModifier:Modifier=Modifier,restoreTarget:String="",restored:()->Unit={},onFocusState:(Boolean)->Unit={},defaultFocus:FocusRequester?=null){
     BoxWithConstraints(Modifier.fillMaxWidth().then(toolbarModifier).onFocusChanged{onFocusState(it.hasFocus)}){CompositionLocalProvider(LocalCompactPlayer provides (maxWidth<720.dp),LocalControlRestore provides (restoreTarget to restored)){Column(Modifier.fillMaxWidth().background(Color(0xe610111b)).padding(12.dp),verticalArrangement=Arrangement.spacedBy(6.dp)){
         val audio=enabledAudioText(m)
         val subtitle=enabledSubtitleText(m)
-        val danmaku=if(m.config.flag("danmaku_enabled",true))"弹幕 ON ${m.addons.danmaku.size}" else "弹幕 OFF"
+        val danmaku=danmakuStatusLabel102(m.config.flag("danmaku_enabled",true),m.addons.danmaku.size)
         var scrubPreview by remember(m.current?.key){mutableStateOf<Long?>(null)}
         var keyScrubRev by remember(m.current?.key){mutableIntStateOf(0)}
         LaunchedEffect(keyScrubRev){val t=scrubPreview;if(t!=null){kotlinx.coroutines.delay(SeekPolicy057.DEBOUNCE_COMMIT_MS);if(scrubPreview==t){scrubPreview=null;m.seek051(t)}}}
@@ -49,7 +49,7 @@ private val LocalCompactPlayer=staticCompositionLocalOf{false}
             PlayerIcon("next","下一集"){m.stepEpisode(1)}
             PlayerIcon("stop","停止",m::stop)
             PlayerIcon("list",if(m.current?.provider=="live")"直播线路"else"选集"){menu("episodes")}
-            InputButton({menu("sources")},Modifier.height(btnHeight).widthIn(min=56.dp,max=180.dp).then(playerRestore("播放线路")),shape=ButtonDefaults.shape(shape=androidx.compose.foundation.shape.RoundedCornerShape(7.dp)),colors=ptvButtonColors(btnBg,Color.White),contentPadding=PaddingValues(12.dp,4.dp)){Text(m.currentCandidate?.site?.name?:"播放源",fontSize=12.sp,maxLines=1,softWrap=false)}
+            InputButton({menu("sources")},Modifier.height(btnHeight).widthIn(min=56.dp,max=180.dp).then(if(defaultFocus!=null)Modifier.focusRequester(defaultFocus)else Modifier).then(playerRestore("播放线路")),shape=ButtonDefaults.shape(shape=androidx.compose.foundation.shape.RoundedCornerShape(7.dp)),colors=ptvButtonColors(btnBg,Color.White),contentPadding=PaddingValues(12.dp,4.dp)){Text(m.currentCandidate?.site?.name?:"播放源",fontSize=12.sp,maxLines=1,softWrap=false)}
             InputButton({menu("speed")},Modifier.height(btnHeight).widthIn(min=48.dp).then(playerRestore("倍速")),shape=ButtonDefaults.shape(shape=androidx.compose.foundation.shape.RoundedCornerShape(7.dp)),colors=ptvButtonColors(btnBg,Color.White),contentPadding=PaddingValues(11.dp,4.dp)){Text("${m.player.playbackParameters.speed}×",fontSize=12.sp,maxLines=1,softWrap=false)}
             InputButton({menu("scale")},Modifier.height(btnHeight).widthIn(min=48.dp).then(playerRestore("画面比例")),shape=ButtonDefaults.shape(shape=androidx.compose.foundation.shape.RoundedCornerShape(7.dp)),colors=ptvButtonColors(btnBg,Color.White),contentPadding=PaddingValues(11.dp,4.dp)){Text(listOf("FIT","FILL","ZOOM")[m.resizeChoice],fontSize=12.sp,maxLines=1,softWrap=false)}
             PlayerIcon("cc","字幕"){menu("subtitles")}
@@ -70,11 +70,31 @@ private fun enabledAudioText(m:PtvModel):String {
     val index=(0 until group.length).first{group.isTrackSelected(it)};val f=group.getTrackFormat(index)
     return TrackLabels056.label(f.language,f.label,f.codecs,f.sampleMimeType,f.channelCount,index+1)
 }
+internal fun subtitleStatusLabel102(
+    hasExternal:Boolean,
+    externalEnabled:Boolean,
+    embeddedDisabled:Boolean,
+    hasSelectedEmbedded:Boolean
+):String = when {
+    hasExternal->if(externalEnabled)"外挂字幕 ON" else "外挂字幕 OFF"
+    embeddedDisabled->"字幕 OFF"
+    hasSelectedEmbedded->"字幕 ON"
+    else->"字幕未报告"
+}
+internal fun danmakuStatusLabel102(enabled:Boolean,count:Int):String = when {
+    !enabled->"弹幕 OFF"
+    count>0->"弹幕 ON ${count}条"
+    else->"弹幕 ON 0"
+}
 internal fun enabledSubtitleText(m:PtvModel):String {
-    if(androidx.media3.common.C.TRACK_TYPE_TEXT in m.player.trackSelectionParameters.disabledTrackTypes)return "字幕 OFF"
-    if(m.addons.cues.isNotEmpty())return "在线字幕 ${m.addons.cues.size}"
-    val selected=m.player.currentTracks.groups.filter{it.type==androidx.media3.common.C.TRACK_TYPE_TEXT}.firstOrNull{g->(0 until g.length).any{g.isTrackSelected(it)}}
-    return if(selected==null)"字幕未报告" else "内嵌字幕"
+    val embeddedDisabled=androidx.media3.common.C.TRACK_TYPE_TEXT in m.player.trackSelectionParameters.disabledTrackTypes
+    val hasSelectedEmbedded=m.player.currentTracks.groups.filter{it.type==androidx.media3.common.C.TRACK_TYPE_TEXT}.any{g->(0 until g.length).any{g.isTrackSelected(it)}}
+    return subtitleStatusLabel102(
+        hasExternal=m.addons.hasExternalSubtitle,
+        externalEnabled=m.addons.externalSubtitleEnabled&&m.addons.cues.isNotEmpty(),
+        embeddedDisabled=embeddedDisabled,
+        hasSelectedEmbedded=hasSelectedEmbedded
+    )
 }
 @Composable private fun DanmakuToggle(m:PtvModel,height:androidx.compose.ui.unit.Dp,action:()->Unit){
     val enabled=remember(m.preferencesRevision){m.config.flag("danmaku_enabled",true)}

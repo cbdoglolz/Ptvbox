@@ -9,6 +9,7 @@ import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.contentDescription
@@ -20,16 +21,28 @@ import coil3.compose.AsyncImage
 
 @Composable internal fun SeasonEpisodes040(m:PtvModel,w:Work){
     val series by m.details.series.collectAsState();val status by m.details.seriesStatus.collectAsState();val loading by m.details.seriesLoading.collectAsState();val c=LocalCinema.current
-    var manual by remember{mutableStateOf(false)};var id by remember{mutableStateOf("")};var focusedEpisode by remember(w.key){mutableStateOf<EpisodeMeta?>(null)};var expanded by remember(w.key){mutableStateOf(false)};var episodeInteracted by remember(w.key){mutableStateOf(false)};val synopsisBring=remember(w.key){BringIntoViewRequester()}
+    var manual by remember{mutableStateOf(false)};var id by remember{mutableStateOf("")};var focusedEpisode by remember(w.key){mutableStateOf<EpisodeMeta?>(null)};var expanded by remember(w.key){mutableStateOf(false)};var episodeInteracted by remember(w.key){mutableStateOf(false)}
+    val resumeEpNum=remember(w.key,w.season,m.user.watches){m.user.watches.firstOrNull{it.work.key==w.key&&it.work.season==w.season}?.let{Identity.episode(it.episode)}}
+    val epRowState=rememberLazyListState()
+    val resumeEpFocus=remember(w.key,w.season){FocusRequester()}
+    var autoFocusedResume by remember(w.key,w.season){mutableStateOf(false)}
     LaunchedEffect(focusedEpisode?.number){expanded=false}
-    LaunchedEffect(episodeInteracted,focusedEpisode?.number,focusedEpisode?.overview){if(episodeInteracted){androidx.compose.runtime.withFrameNanos{};runCatching{synopsisBring.bringIntoView()}}}
     LaunchedEffect(m.seasonCorrectionRequest){if(m.seasonCorrectionRequest>0)manual=true}
     Column(verticalArrangement=Arrangement.spacedBy(12.dp)){
         PcSection("季与单集",status)
         series?.let{show->
             LaunchedEffect(show.id,show.episodes){
-                val selected=focusedEpisode?.number?.let{number->show.episodes.firstOrNull{it.number==number}}
-                focusedEpisode=selected?:show.episodes.firstOrNull{it.overview.isNotBlank()}?:show.episodes.firstOrNull()
+                val resumeIdx=resumeEpNum?.let{num->show.episodes.indexOfFirst{it.number==num}}?:-1
+                if(resumeIdx>=0&&!autoFocusedResume){
+                    val ep=show.episodes[resumeIdx]
+                    focusedEpisode=ep;episodeInteracted=true;autoFocusedResume=true
+                    epRowState.scrollToItem((resumeIdx-1).coerceAtLeast(0))
+                    withFrameNanos{}
+                    runCatching{resumeEpFocus.requestFocus()}
+                }else{
+                    val selected=focusedEpisode?.number?.let{number->show.episodes.firstOrNull{it.number==number}}
+                    focusedEpisode=selected?:show.episodes.firstOrNull{it.overview.isNotBlank()}?:show.episodes.firstOrNull()
+                }
             }
             if(show.seasons.size>1)LazyRow(horizontalArrangement=Arrangement.spacedBy(12.dp),contentPadding=PaddingValues(3.dp)){
                 items(show.seasons,key={it.number}){season->InputButton({m.details.selectSeason(season.number)},Modifier.width(124.dp),shape=androidx.tv.material3.ButtonDefaults.shape(RoundedCornerShape(10.dp)),contentPadding=PaddingValues(5.dp),colors=ptvButtonColors(if(w.season==season.number)c.raised else c.surface,c.text)){
@@ -40,10 +53,10 @@ import coil3.compose.AsyncImage
                     }
                 }}
             }else show.seasons.firstOrNull()?.let{season->Text("${season.name} · ${season.year} · ${season.count}集",color=PcAccent,fontSize=13.sp)}
-            LazyRow(horizontalArrangement=Arrangement.spacedBy(12.dp),contentPadding=PaddingValues(4.dp)){
-                items(show.episodes,key={it.number}){episode->EpisodeCard054(m,w,episode,selected=episodeInteracted&&focusedEpisode?.number==episode.number){focusedEpisode=it;episodeInteracted=true}}
+            LazyRow(state=epRowState,horizontalArrangement=Arrangement.spacedBy(12.dp),contentPadding=PaddingValues(4.dp)){
+                items(show.episodes,key={it.number}){episode->val focusReq=if(resumeEpNum!=null&&episode.number==resumeEpNum)resumeEpFocus else null;EpisodeCard054(m,w,episode,selected=episodeInteracted&&focusedEpisode?.number==episode.number,cardFocusRequester=focusReq){focusedEpisode=it;episodeInteracted=true}}
             }
-            focusedEpisode?.let{episode->EpisodeSynopsis060(episode,expanded,{expanded=!expanded},Modifier.bringIntoViewRequester(synopsisBring))}
+            focusedEpisode?.let{episode->EpisodeSynopsis060(episode,expanded,{expanded=!expanded})}
         }
         if(series==null&&loading)LazyRow(horizontalArrangement=Arrangement.spacedBy(12.dp),contentPadding=PaddingValues(4.dp)){items(6){EpisodeSkeleton055()}}
     }
@@ -59,7 +72,15 @@ import coil3.compose.AsyncImage
     val expandable=text.length>72
     var focused by remember(episode.number){mutableStateOf(false)}
     Column(modifier,verticalArrangement=Arrangement.spacedBy(6.dp)){
-        Text("第${episode.number}集简介 · ${episode.title}",color=PcAccent,fontSize=14.sp,maxLines=1)
+        Row(
+            Modifier.background(androidx.compose.ui.graphics.Color(0xCC241C3D),RoundedCornerShape(7.dp))
+                .padding(horizontal=10.dp,vertical=5.dp),
+            verticalAlignment=androidx.compose.ui.Alignment.CenterVertically,
+            horizontalArrangement=Arrangement.spacedBy(8.dp)
+        ){
+            Text("第${episode.number}集简介",color=androidx.compose.ui.graphics.Color(0xFFE9D5FF),fontSize=13.sp,fontWeight=androidx.compose.ui.text.font.FontWeight.Bold,maxLines=1)
+            if(episode.title.isNotBlank())Text("· ${episode.title}",color=androidx.compose.ui.graphics.Color.White,fontSize=13.sp,fontWeight=androidx.compose.ui.text.font.FontWeight.SemiBold,maxLines=1,overflow=androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+        }
         InputButton({if(expandable)toggle()},Modifier.fillMaxWidth().heightIn(min=58.dp,max=if(expanded)210.dp else 96.dp).onFocusChanged{focused=it.isFocused}.semantics{contentDescription="第${episode.number}集简介"+(if(focused)" · 当前焦点" else "")},shape=androidx.tv.material3.ButtonDefaults.shape(RoundedCornerShape(8.dp)),colors=ptvButtonColors(c.raised,c.text),contentPadding=PaddingValues(10.dp,8.dp)){
             Column(Modifier.fillMaxWidth(),verticalArrangement=Arrangement.spacedBy(4.dp)){
                 Text(

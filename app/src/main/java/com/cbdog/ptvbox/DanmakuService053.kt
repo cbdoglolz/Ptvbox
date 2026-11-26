@@ -17,9 +17,20 @@ class DanmakuService053(private val secrets:SecretStore){
   client.newCall(request.build()).execute().use{r->require(r.isSuccessful){"弹幕服务 HTTP ${r.code}"};val out=java.io.ByteArrayOutputStream();r.body.byteStream().use{input->val buf=ByteArray(8192);while(true){val n=input.read(buf);if(n<0)break;require(out.size()+n<=16_000_000);out.write(buf,0,n)}};return try{JSONObject(out.toString("UTF-8"))}catch(_:Exception){throw java.io.IOException("弹幕服务返回非JSON内容")}}
  }
  fun matches(c:MediaContext053):List<DanmakuMatch053>{return try{catalog(c).ifEmpty{bilibili(c)}}catch(e:Exception){bilibili(c).ifEmpty{throw e}}}
+ private fun stripSequel(title:String)=title.replace(Regex("(?i)\\s*(?:续篇|续集|完结篇|新篇|后篇|前篇|最终季|final\\s*season|sequel)$"),"").trim()
+ private fun seriesMatch(c:MediaContext053,title:String)=c.exactName(title)||c.exactName(stripSequel(title))
  private fun catalog(c:MediaContext053):List<DanmakuMatch053>{val out=mutableListOf<DanmakuMatch053>();for(name in c.names.take(3)){
   val animes=get("search/anime",mapOf("keyword" to name)).optJSONArray("animes")?.objects().orEmpty()
-  for(a in animes.take(8)){val title=a.optString("animeTitle");if(!c.exactName(title)||!c.accepts(title))continue;val year=a.optString("startDate").take(4);if(c.work.year.length==4&&year.length==4&&year!=c.work.year)continue;val type=a.optString("type");if(type.isNotBlank()&&((c.work.kind=="movie")!=(type=="movie")))continue;if(c.work.kind=="tv"&&c.work.season>1&&Identity.season(title)!=c.work.season)continue
+  val sameSeries=animes.take(12).filter{a->val title=a.optString("animeTitle");val type=a.optString("type");seriesMatch(c,title)&&(type.isBlank()||(c.work.kind=="movie")==(type=="movie"))}
+  val direct=sameSeries.filter{a->val title=a.optString("animeTitle");val year=a.optString("startDate").take(4);val yearOk=c.work.season>1||c.work.year.length!=4||year.length!=4||year==c.work.year;c.exactName(title)&&c.accepts(title)&&yearOk&&(c.work.kind!="tv"||c.work.season<=1||Identity.season(title)==c.work.season)}
+  val picked=direct.ifEmpty{
+   if(c.work.kind=="tv"&&c.work.season>1){
+    val ordered=sameSeries.sortedBy{it.optString("startDate").ifBlank{"9999"}}
+    val byIndex=ordered.getOrNull(c.work.season-1)
+    listOfNotNull(byIndex)
+   }else emptyList()
+  }
+  for(a in picked){val title=a.optString("animeTitle")
    val j=get("bangumi/${a.optString("animeId")}");val bangumi=j.optJSONObject("bangumi")?:j;val eps=bangumi.optJSONArray("episodes")?.objects().orEmpty();for(e in eps){val number=e.optString("episodeNumber").toIntOrNull()?:Identity.episode(e.optString("episodeTitle"));if(c.work.kind=="movie"&&eps.size==1||c.work.kind=="tv"&&c.episode!=null&&number==c.episode){val id=e.optString("episodeId");if(id.isNotBlank())out+=DanmakuMatch053(id,title,e.optString("episodeTitle"))}}
   };if(out.isNotEmpty())break
  };return out.distinctBy{it.id}}
