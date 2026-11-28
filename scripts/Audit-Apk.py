@@ -11,9 +11,14 @@ import zipfile
 parser = argparse.ArgumentParser()
 parser.add_argument("directory", type=Path)
 parser.add_argument("--output", type=Path, required=True)
+parser.add_argument("--source-ref", help="Compare a CI APK with exact committed assets, avoiding checkout newline differences")
 args = parser.parse_args()
 root = Path(__file__).resolve().parents[1]
-build = (root / "app/build.gradle.kts").read_text(encoding="utf-8")
+def source_bytes(path):
+    if args.source_ref:
+        return subprocess.check_output(["git", "show", f"{args.source_ref}:{path}"], cwd=root)
+    return (root / path).read_bytes()
+build = source_bytes("app/build.gradle.kts").decode("utf-8")
 version = re.search(r'versionName = "([^"]+)"', build)[1]
 code = re.search(r'versionCode = (\d+)', build)[1]
 sdk = Path(os.environ["ANDROID_HOME"]) / "build-tools/37.0.0"
@@ -39,7 +44,7 @@ for apk in apks:
             assert not any(needle in data for needle in needles), "Debug class or protected address found"
             assert not re.search(rb"-----BEGIN (?:RSA |EC )?PRIVATE KEY-----\s+[A-Za-z0-9+/=\r\n]{40,}", data)
         for asset in ["default-sites.json", "international-sites.json", "anime-mappings103.json"]:
-            assert archive.read("assets/" + asset) == (root / "app/src/main/assets" / asset).read_bytes()
+            assert archive.read("assets/" + asset) == source_bytes("app/src/main/assets/" + asset)
         mapping = json.loads(archive.read("assets/anime-mappings103.json"))
         abis = sorted({n.split("/")[1] for n in names if n.startswith("lib/")})
         if apk.name.endswith("-ARM.apk"):
@@ -49,7 +54,8 @@ for apk in apks:
     results.append({"file": apk.name, "versionName": version, "versionCode": int(code),
                     "sha256": hashlib.sha256(apk.read_bytes()).hexdigest(), "bytes": apk.stat().st_size,
                     "certificateSha256": certificate, "abis": abis, "animeMappings": len(mapping["rows"]),
-                    "noDebugOrPrivateMaterial": True, "assetsMatchSource": True})
+                    "noDebugOrPrivateMaterial": True, "assetsMatchSource": True,
+                    "assetSourceReference": args.source_ref or "working-tree"})
 args.output.parent.mkdir(parents=True, exist_ok=True)
 args.output.write_text(json.dumps(results, indent=2) + "\n", encoding="utf-8")
 print(json.dumps(results, ensure_ascii=True))

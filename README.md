@@ -2,7 +2,7 @@
 
 Private Android TV client workspace for the PCBOX feature set.
 
-Status: **1.0.3** / versionCode 44 is approved for release, consolidating the c1–c3 international sources, anime mapping, movie danmaku, download actions, compact search/focus improvements and movie/TV franchise recommendations. Public release preparation is in progress; see the [1.0.3 release report](docs/reports/Ptvbox-v1.0.3-Release-Report.md) and [checklist](PROGRESS-CHECKLIST.md). Physical-device voice/QR/PiP acceptance, live TMDB verification with valid credentials, full source coverage and PC parity remain incomplete.
+Status: public signed ATV release **1.0.3** / versionCode 44, consolidating c1–c3 international sources, anime mapping, movie danmaku, download actions, compact search/focus improvements and movie/TV franchise recommendations. See the [release report](docs/reports/Ptvbox-v1.0.3-Release-Report.md), [GitHub Release](https://github.com/cbdoglolz/Ptvbox/releases/tag/v1.0.3) and [checklist](PROGRESS-CHECKLIST.md). Both public APKs and emulator manual upgrade passed validation. In-app checking detects 1.0.3, but downloading/validation failed twice on the c3 emulator; this remains an open issue. Physical-device voice/QR/PiP, live TMDB with valid credentials, full source coverage and PC parity remain unverified.
 
 Start any handoff or development session from [PROJECT-CONTINUITY.md](PROJECT-CONTINUITY.md). It records the current architecture, version, tools, release state, verified/unverified work, risks and the exact next resume point. Cross-project procedures are defined in `C:\Users\cbdog\.codex\PROJECT-CONTINUITY.md`.
 

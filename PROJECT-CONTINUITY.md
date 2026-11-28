@@ -1,9 +1,9 @@
 # Ptvbox 项目进度与交接规范
 
-Revision: `PTVBOX-2026-11-28.1`
-Last updated: `2026-11-28 14:48 Asia/Shanghai`
+Revision: `PTVBOX-2026-11-28.2`
+Last updated: `2026-11-28 15:01 Asia/Shanghai`
 Last updated by: `Codex`
-Current implementation checkpoint: `Owner authorized GitHub release 1.0.3 / 44. Product source unchanged from approved c3; formal build, signing, publication and download verification underway. Public latest still 1.0.2 until verified.`
+Current implementation checkpoint: `Public 1.0.3 / 44 at v1.0.3, source 7bc2d5e. 174 JVM tests and 3 Actions runs succeeded; both public downloads/signatures/assets and c3-to-44 emulator manual upgrade/search/QR passed. In-app check sees 1.0.3, but download/validation failed twice and remains open. Candidates removed after verification; WeCom skipped (secret absent).`
 
 本文件是Ptvbox当前状态的入口。它帮助任何开发者在不依赖聊天历史的情况下接手到一半的工作。全局流程见`C:\Users\cbdog\.codex\PROJECT-CONTINUITY.md`。
 
@@ -33,19 +33,28 @@ Ptvbox是PCBOX功能集的Android客户端。目前交付物是支持遥控器�
 
 | 项目 | 当前值 |
 |---|---|
-| 可见版本（已发布） | `1.0.2` |
-| Android versionCode（已发布） | `40` |
-| 进行中候选版本（本地） | `1.0.3-c3 / versionCode 43`；通用/ARM 签名包位于 `artifacts/candidate-v1.0.3/`，未提交/上传/正式发布 |
+| 可见版本（已发布） | `1.0.3` |
+| Android versionCode（已发布） | `44` |
+| 进行中候选版本（本地） | 无；c1–c3已定稿，候选目录在正式附件核验后清理，正式包在`artifacts/release-v1.0.3/` |
 | 包名 | `com.cbdog.ptvbox` |
 | minSdk / targetSdk / compileSdk | 26 / 35 / 37 |
 | 分支 | `main` |
 | 远程 | `https://github.com/cbdoglolz/Ptvbox.git`（已切换为 Public 公开仓库） |
-| 最新正式标签 | `v1.0.2` |
-| v1.0.2构建源码提交 | `1d1e7dd` |
-| GitHub Actions | `Ptvbox release`（#45909558679）成功发布公开 Release |
-| GitHub Release | 公开 Latest Release（非草稿），名称/正文均为`Ptvbox 1.0.2`，支持 App 内“检查更新”直连 |
+| 最新正式标签 | `v1.0.3` |
+| v1.0.3构建源码提交 | `7bc2d5e3740b2c8a860f7b7830ad6d8a48f1e6cb` |
+| GitHub Actions | `Ptvbox release`（#46118464553）成功发布公开 Release |
+| GitHub Release | 公开 Latest Release（非草稿），名称/正文均为`Ptvbox 1.0.3`；检查更新可见，应用内下载/校验仍失败，见本次记录 |
 | Release附件 | 通用APK、ARM APK，共2个文件 |
 | 物理电视验收 | 1.0.2 为此前安装记录；本轮 1.0.3 未操作任何物理电视/手机，待所有者手动验收 |
+
+当前`v1.0.3`公开附件及规范本地正式包的SHA-256：
+
+```text
+0a36d0242ba090087ac4e5f4e324dba1e0038b58ce66beb86ae0407229ca27f7  Ptvbox-1.0.3-ARM.apk
+2c6a61768085a8085acb0bb2639d83d052bf687ddfaea5a5d05b1a6b60b2c5f0  Ptvbox-1.0.3.apk
+```
+
+以下为历史v1.0.2校验记录，保留用于追溯。
 
 GitHub公开Release（`v1.0.2`）附件的实际SHA-256（来自 `gh release view v1.0.2` `digest`）：
 
@@ -278,9 +287,9 @@ python .tools\audit-0100.py
 建议顺序：
 
 1. 读取本文件、规则、最新 1.0.3 报告与清单；执行 `git status --short --branch`，确认是否有其他开发者更新。
-2. 从所有者对 `1.0.3-c3` 的设备反馈继续，只修复本轮范围；不继承任何历史电视连机授权。
+2. 优先定位已记录的c3应用内下载/校验失败，再依据1.0.3设备反馈继续；不继承任何历史电视连机授权。
 3. 若需实时 TMDB 端到端复核，先在隔离环境确认有效凭据；现有模拟器凭据401不能作为代码季集匹配失败的证据，也不能冒充实时验证通过。
-4. 所有者确认正式定稿后再进入 `1.0.3 / versionCode >=44`；核对签名、测试、包内容与当前发布规则。
+4. 1.0.3已公开发布；下一客户端版本范围待确认，若开发1.0.4-c1应versionCode至少45，不重打/覆盖v1.0.3标签。
 5. 企业微信 Secret 尚未配置，不发送测试消息；完整 PC 对等、其他国际源、迁移和原生手机继续按明确授权分批推进。
 
 可直接使用的新会话开场：
@@ -621,3 +630,22 @@ PROGRESS-CHECKLIST.md 和最新版本报告。检查Git状态和最新提交，
 - 下一条：完成本地双签名构建与审计/测试后提交main、推送v1.0.3触发既有Actions；等公开Release和两包下载核验后清候选、更新最终报告与本文件。仅隔离模拟器，不操作实体设备。
 
 - 发布准备补证：正式1.0.3/44双签名本地包、174项JVM及package-audit-local.json全部通过；app/src/main与批准c3指纹完全一致。即将提交并推送标签，远程发布仍需完成。
+
+### 2026-11-28 15:01 Asia/Shanghai — Codex — 1.0.3 GitHub正式发布与上线验核
+
+- 状态：DONE（公开发布和双包/手动覆盖验证）；PARTIAL（应用内下载/校验失败及物理设备行为未解决）。
+- 所有者明确授权发布；版本1.0.3/44，产品源码沿用c3。发布提交`7bc2d5e3740b2c8a860f7b7830ad6d8a48f1e6cb`，标签v1.0.3一致；后续审计文档提交不改变标签或客户端代码。
+- 线上：2026-11-28 14:54:09 Asia/Shanghai公开，https://github.com/cbdoglolz/Ptvbox/releases/tag/v1.0.3；Latest正确，标题/正文只有Ptvbox 1.0.3，附件只有通用/ARM两个APK。
+- Actions：release46118464553、main验证46118458157、tag验证46118464385均成功且源码提交一致。本地174项JVM、双签名/vital lint和包审计通过；WECHAT_WEBHOOK_URL仍缺，通知步骤明确skipped，未送达企业微信。
+- 实际公开附件：匿名浏览器下载及应用使用的匿名asset端点均返回APK；下载哈希与GitHub digest相同，原证书/1.0.3/44/ABI/4926映射资产/无QA或私密材料审计通过。新增Audit-Apk.py --source-ref按标签Git blob核对跨平台换行。
+- 模拟器：启动原先未运行的隔离Pie64；原c3/43能检测到v1.0.3，但连续两次应用内下载/校验失败，第一次末次显示88%；未改变网络设置，根因未定位，不能宣称应用内一键更新通过。随后用GitHub下载ARM包直接覆盖到44，UID保持，键盘、联想搜索/返回、二维码156dp通过。未操作实体设备。
+- 交付：artifacts/release-v1.0.3内已替换为GitHub同字节包；本地独立重建副本留在qa-1.0.3-release/local-build。候选在公开验核后清理，递归删除遭自动审查拦截后采用三个精确文件+空目录的非递归方式完成。
+- 证据：artifacts/qa-1.0.3-release/verification-summary.json、github-verification.json、package-audit-github.json、package-audit-local.json、jvm.json、signed-ui.json、in-app-update.json、workflow-verification.json和candidate-cleanup.json；正式报告docs/reports/Ptvbox-v1.0.3-Release-Report.md。
+- PC差距：其余国际源、完整双向迁移、原生手机UI、全来源/硬件/长期矩阵和PC完整对等未开发；语音/真实扫码/系统画中画实播、有效TMDB实时全链路仍未验收。
+- 下一次直接执行：git status --short --branch、读取正式报告与in-app-update.json；优先对旧客户端下载/校验路径采集可区分网络超时、文件哈希、PackageManager签名/版本校验的证据，再按所有者指定范围规划1.0.4-c1/45及设备反馈。不要重打已公开标签、卸载/清库或继承历史电视连机授权。
+
+- 公开/本地规范包 `Ptvbox-1.0.3-ARM.apk`：16015100字节，SHA-256 `0a36d0242ba090087ac4e5f4e324dba1e0038b58ce66beb86ae0407229ca27f7`。
+
+- 公开/本地规范包 `Ptvbox-1.0.3.apk`：16023051字节，SHA-256 `2c6a61768085a8085acb0bb2639d83d052bf687ddfaea5a5d05b1a6b60b2c5f0`。
+
+- 环境收尾：两个测试App已强停，1920×1080/240和媒体音量15回读；只对本轮启动的隔离模拟器执行关机命令（返回Done），随后停止本轮启动的HD-Player进程以恢复原先关闭状态；未调整物理设备。
