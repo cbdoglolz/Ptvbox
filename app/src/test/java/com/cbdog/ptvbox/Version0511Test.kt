@@ -19,12 +19,12 @@ class Version0511Test {
         assertEquals(2,fallback.seasons.single().number)
     }
 
-    @Test fun relatedAndCreditPagesKeepSixColumnRowsAndPaging(){
+    @Test fun relatedAndCreditPagesKeepFiveColumnRowsAndPaging(){
         val detail=source("src/main/java/com/cbdog/ptvbox/CinemaDetail040.kt")
         val credit=source("src/main/java/com/cbdog/ptvbox/CreditPage055.kt")
         assertTrue(detail.contains("related.chunked(5)"))
         assertTrue(detail.contains("m.details.moreSimilar()"))
-        assertTrue(credit.contains("GridCells.Fixed(6)"))
+        assertTrue(credit.contains("GridCells.Fixed(5)"))
         assertTrue(credit.contains("pagedDown051"))
     }
 

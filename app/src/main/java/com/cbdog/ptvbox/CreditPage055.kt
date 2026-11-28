@@ -16,7 +16,7 @@ class CreditPage055(val owner:Work,val person:PersonCredit?=null,val company:Com
  if(page.error.isNotBlank())Text(page.error,color=PcAccent)
  if(!m.tmdbConfigured&&page.person?.provider!="douban")PcChip("配置TMDB Key",false,{m.settingsSection="metadata";m.utility("settings")})
  Text(if(page.loading)"正在加载作品与评分…"else"${page.rows.size}部作品 · 海报和评分逐步补全",color=LocalCinema.current.muted)
- LazyVerticalGrid(GridCells.Fixed(6),state=grid,modifier=Modifier.weight(1f).pagedDown051(grid,page.rows.map{it.key},{m.focusWork.takeIf{m.focusRow=="credit-${page.id}"}},page.loading,page.more){m.loadCredit055()},horizontalArrangement=Arrangement.spacedBy(12.dp),verticalArrangement=Arrangement.spacedBy(16.dp),contentPadding=PaddingValues(5.dp)){
+ LazyVerticalGrid(GridCells.Fixed(5),state=grid,modifier=Modifier.weight(1f).pagedDown051(grid,page.rows.map{it.key},{m.focusWork.takeIf{m.focusRow=="credit-${page.id}"}},page.loading,page.more){m.loadCredit055()},horizontalArrangement=Arrangement.spacedBy(12.dp),verticalArrangement=Arrangement.spacedBy(16.dp),contentPadding=PaddingValues(5.dp)){
   items(page.rows,key={it.key}){CinemaPoster(m,it,"credit-${page.id}")}
   if(page.rows.isEmpty()&&!page.loading)item(span={GridItemSpan(maxLineSpan)}){PcEmpty("暂无作品",page.error.ifBlank{"提供方尚未返回作品，可刷新重试；原作品关联保留。"})}
   if(page.rows.isNotEmpty())item(span={GridItemSpan(maxLineSpan)}){MoreHint051(page.loading,page.more){m.loadCredit055()}}

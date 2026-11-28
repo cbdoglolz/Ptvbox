@@ -56,9 +56,9 @@ fun PtvModel.bulkEnable(rows:List<Site>,enabled:Boolean){
                 Text("站点 · ${all.size}个",color=c.text,fontSize=20.sp,fontWeight=FontWeight.SemiBold)
                 Text("启用 $enabledCount · 好站 $goodCount · 差站 $badCount · 按评分降序（有源+1 / 待扫+0.5 / 无源-1）",color=c.muted,fontSize=11.sp,maxLines=1,overflow=TextOverflow.Ellipsis)
             }
-            PcChip("分类选源",false,{routes=true})
-            PcChip("检测当前",false,{m.checkSites(rows)})
-            PcChip("更新 / 回退",false,{updates=true})
+            SiteHeaderAction103("分类选源"){routes=true}
+            SiteHeaderAction103("检测当前"){m.checkSites(rows)}
+            SiteHeaderAction103("更新 / 回退"){updates=true}
             if(goodCount+badCount>0)PcChip("清零计分",false,{m.resetSiteScores()})
         }
         FlowRow(horizontalArrangement=Arrangement.spacedBy(6.dp),verticalArrangement=Arrangement.spacedBy(5.dp)){

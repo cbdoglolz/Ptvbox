@@ -40,7 +40,7 @@ import kotlinx.coroutines.isActive
  fun back(){seekDirection=0;seekHolding=false;if(overlay.controls||overlay.panel.isNotBlank()||overlay.previewMs!=null){overlay=PlayerOverlay(controls=false);panelTrail=emptyList();restoreControl=""}else m.back()}
  fun commitSeek(){val target=overlay.previewMs;seekDirection=0;seekHolding=false;overlay=overlay.copy(previewMs=null,controls=false);if(target!=null)m.seek051(target)}
  fun queueSeekDelta(deltaMs:Long){if(m.current?.provider=="live")return;val base=overlay.previewMs?:m.position;val max=m.duration.coerceAtLeast(0);val next=if(max>0)(base+deltaMs).coerceIn(0,max)else(base+deltaMs).coerceAtLeast(0);overlay=overlay.copy(controls=false,previewMs=next);seekRevision++}
- fun enterPip(){val a=activity?:return m.message("当前环境没有可用Activity，无法进入小窗");if(android.os.Build.VERSION.SDK_INT<26||!a.packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_PICTURE_IN_PICTURE)){m.message("当前设备或电视系统不支持系统小窗");return};val width=m.player.videoSize.width.takeIf{it>0}?:16;val height=m.player.videoSize.height.takeIf{it>0}?:9;runCatching{a.enterPictureInPictureMode(android.app.PictureInPictureParams.Builder().setAspectRatio(android.util.Rational(width,height)).build());m.message("已进入小窗播放")}.onFailure{m.message("小窗启动失败：${it.message?.take(60) ?: "系统限制"}")}}
+ fun enterSystemPip103(){val a=activity?:return m.message("当前环境没有可用Activity，无法进入小窗");if(android.os.Build.VERSION.SDK_INT<26||!a.packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_PICTURE_IN_PICTURE)){m.message("当前设备或电视系统不支持系统小窗");return};val width=m.player.videoSize.width.takeIf{it>0}?:16;val height=m.player.videoSize.height.takeIf{it>0}?:9;runCatching{check(a.enterPictureInPictureMode(android.app.PictureInPictureParams.Builder().setAspectRatio(android.util.Rational((width.toFloat()/height*1000).toInt().coerceIn(420,2390),1000)).build())){"系统拒绝进入画中画"}}.onFailure{m.message("小窗启动失败：${it.message?.take(60) ?: "系统限制"}")}}
  fun open(name:String){if(overlay.panel.isNotBlank())panelTrail=panelTrail+overlay.panel;restoreControl="";overlay=overlay.open(name);interaction=android.os.SystemClock.uptimeMillis()}
  BackHandler{back()}
  LaunchedEffect(overlay){if(BuildConfig.DEBUG)android.util.Log.d("PtvOverlay","STATE controls=${overlay.controls} panel=${overlay.panel} preview=${overlay.previewMs!=null} trail=${panelTrail.size}")}
@@ -120,7 +120,7 @@ import kotlinx.coroutines.isActive
      Text(infoLine,color=if(m.playbackCapability060.warning.isBlank())Color(0xffc5d8e8)else Color(0xffffc56e),fontSize=11.sp,maxLines=1)
     }
    }
-   Box(Modifier.align(Alignment.BottomCenter)){PlaybackChrome(m,{open(it)},{overlay=overlay.copy(controls=false)},::enterPip,Modifier,restoreControl,{m.lastRestoredControl=restoreControl;restoreControl=""},{chromeFocused=it},defaultFocus=tools)}
+   Box(Modifier.align(Alignment.BottomCenter)){PlaybackChrome(m,{open(it)},{overlay=overlay.copy(controls=false)},::enterSystemPip103,Modifier,restoreControl,{m.lastRestoredControl=restoreControl;restoreControl=""},{chromeFocused=it},defaultFocus=tools)}
    }else{
    if(m.notice.isNotBlank())Text(m.notice,color=PcAccent,fontSize=12.sp,maxLines=2,modifier=Modifier.align(Alignment.TopEnd).padding(top=if(m.addons.badge.isNotBlank())76.dp else 16.dp,end=16.dp).widthIn(max=420.dp).background(Color(0xc0201a32),RoundedCornerShape(8.dp)).padding(10.dp))
   }
@@ -205,7 +205,7 @@ internal object PlayerTouch060 {
 }
 
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
-@Composable private fun PlayerSurface040(m:PtvModel){
+@Composable internal fun PlayerSurface040(m:PtvModel){
     m.preferencesRevision
     AndroidView(
         factory={ctx->PlayerView(ctx).apply{player=m.player;useController=false;keepScreenOn=true}},

@@ -37,7 +37,7 @@ try {
     $relFolder=if($isCandidate){"artifacts/candidate-v$baseVersion"}else{"artifacts/release-v$version"}
     $folder=Join-Path $root $relFolder;New-Item -ItemType Directory -Force $folder | Out-Null
     if($isCandidate){Get-ChildItem -LiteralPath $folder -Filter '*.apk' -ErrorAction SilentlyContinue | Where-Object {$_.Name -notlike "Ptvbox-$version*"} | Remove-Item -Force -ErrorAction SilentlyContinue}
-    else{$candDir=Join-Path $root "artifacts/candidate-v$baseVersion";if(Test-Path -LiteralPath $candDir){Remove-Item -LiteralPath $candDir -Recurse -Force -ErrorAction SilentlyContinue}}
+    # Candidate cleanup belongs after verified publication, not during local release preparation.
     $suffix=if($DebugOnly){'-QA'}elseif($ArmHost){'-ARM'}else{''};$file="Ptvbox-$version$suffix.apk"
     $source=if($DebugOnly){'app/build/outputs/apk/debug/app-debug.apk'}else{'app/build/outputs/apk/release/app-release.apk'}
     Copy-Item -LiteralPath $source -Destination (Join-Path $folder $file)

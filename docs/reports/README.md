@@ -1,5 +1,15 @@
 # 更新报告
 
+- [1.0.3 · 正式发布、累计需求与发布验收](Ptvbox-v1.0.3-Release-Report.md)
+
+- [1.0.3-c3 · 紧凑弹窗、搜索焦点/响应与电影剧集系列联动](Ptvbox-v1.0.3-c3-Update-Report.md)
+
+- [1.0.3-c2 · 搜索交互、系统画中画与高清线路排序](Ptvbox-v1.0.3-c2-Update-Report.md)
+
+- [1.0.3-c1 · 国际源、动画季集、电影弹幕、下载与触摸/小窗候选验收](Ptvbox-v1.0.3-Update-Report.md)
+- [1.0.2 · 正式版更新报告](Ptvbox-v1.0.2-Update-Report.md)
+- [1.0.1 · 更新报告](Ptvbox-v1.0.1-Update-Report.md)
+
 - [1.0.0 · 私有源提示加固、真实播放验收与GitHub发布](Ptvbox-v1.0.0-Private-Source-Notice-Hardening.md)
 - [0.9.0 · 弹幕实时预览、分类选源与多网站身份补全](Ptvbox-v0.9.0-Update-Report.md)
 

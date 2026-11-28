@@ -1,6 +1,7 @@
 package com.cbdog.ptvbox
 
 import org.json.JSONObject
+import kotlinx.coroutines.*
 import java.io.IOException
 
 suspend fun Metadata.collection(work:Work):List<Work>{
@@ -48,11 +49,20 @@ suspend fun Metadata.companyWorks(company:CompanyCredit,kind:String,page:Int=1):
     return tmdb("discover/$k",mapOf((if(company.role=="播出平台")"with_networks"else"with_companies") to company.id,"page" to page.toString())).optJSONArray("results")?.objects()?.map{tmdbWork(it,k)}.orEmpty()
 }
 suspend fun Metadata.versions(work:Work):List<Work> = search(work.title.substringBefore('：').substringBefore(':')).filter{it.key!=work.key&&Identity.base(it.title)==Identity.base(work.title)}.take(16)
-suspend fun Metadata.moreRelated(work:Work,page:Int):List<Work>{
-    if(work.provider=="tmdb")return tmdb("${work.kind}/${work.id}/recommendations",mapOf("page" to page.toString())).optJSONArray("results")?.objects()?.map{tmdbWork(it,work.kind)}.orEmpty()
-    // Douban has no documented cross-provider related ID; retain the provider's same-kind recommendations.
-    return feed("douban",work.kind,if(work.genres.contains("动画"))"动画"else"热门",page).filter{it.key!=work.key}
+suspend fun Metadata.moreRelated(work:Work,page:Int):List<Work> = supervisorScope {
+    val series=if(page==1)async{seriesLinks103(work)}else null
+    val similar=async{
+        try{
+            withTimeout(6500){
+                if(work.provider=="tmdb")tmdb("${work.kind}/${work.id}/recommendations",mapOf("page" to page.toString())).optJSONArray("results")?.objects()?.map{tmdbWork(it,work.kind)}.orEmpty()
+                else if(page==1)related(work).ifEmpty{feed("douban",work.kind,if(work.genres.contains("动画"))"动画"else"热门",page)}
+                else feed("douban",work.kind,if(work.genres.contains("动画"))"动画"else"热门",page)
+            }
+        }catch(e:CancellationException){if(e !is TimeoutCancellationException)throw e;emptyList()}catch(_:Exception){emptyList()}
+    }
+    SeriesLinks103.merge(work,series?.await().orEmpty(),similar.await())
 }
+
 fun Work.detailFacts():List<String> = (listOf(year,if(kind=="movie")"电影"else"电视剧 / 第${season}季")+facts.countries+genres).filter{it.isNotBlank()}.distinct()
 internal object DetailFact056 {
     private val aliases=mapOf(

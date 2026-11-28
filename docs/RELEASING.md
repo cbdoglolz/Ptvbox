@@ -37,6 +37,6 @@ Build logs, test reports, screenshots, personal subscriptions, credentials, sign
 
 ## Pre-release candidate iterations (`-c1`, `-c2`, ...)
 
-- Unreleased local test builds use `X.Y.Z-c1`, `X.Y.Z-c2`, etc. (same target `versionCode`), built into a single reused `artifacts/candidate-vX.Y.Z/` directory where each new candidate replaces the previous candidate APKs to save disk space.
+- Unreleased local test builds use `X.Y.Z-c1`, `X.Y.Z-c2`, etc. (increment `versionCode` for each delivered candidate and the formal release), built into a single reused `artifacts/candidate-vX.Y.Z/` directory where each new candidate replaces the previous candidate APKs to save disk space.
 - All iteration history stays recorded in `PROJECT-CONTINUITY.md` and `PROGRESS-CHECKLIST.md`.
-- Once the formal `X.Y.Z` release is published, remove `artifacts/candidate-vX.Y.Z/` automatically.
+- Once the formal `X.Y.Z` release is published, remove `artifacts/candidate-vX.Y.Z/` after verifying the public release and both downloaded APKs.

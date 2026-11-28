@@ -16,6 +16,7 @@ import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 
 class Library(private val appContext:Context,name:String="ptvbox-library.db"):SQLiteOpenHelper(appContext,name,null,3) {
+    internal fun assetText103(name:String)=appContext.assets.open(name).bufferedReader().use{it.readText()}
     val episodeCacheDir055 get()=java.io.File(appContext.cacheDir,"episode-series055").apply{mkdirs()}
     val detailCacheDir get()=java.io.File(appContext.cacheDir,"detail-metadata060").apply{mkdirs()}
     val userMediaDir get()=java.io.File(appContext.filesDir,"user-media").apply{mkdirs()}

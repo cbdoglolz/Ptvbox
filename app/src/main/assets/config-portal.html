@@ -54,6 +54,17 @@ function render(){area.replaceChildren();free.replaceChildren();
   if(!area.children.length&&!free.children.length){const p=document.createElement('p');p.textContent='此分类没有配置项。';area.append(p)}}
 async function refresh(initial=false){const next=await call('/api/status');state=next;if(initial){for(const p of state.pages){const o=document.createElement('option');o.value=p.id;o.textContent=p.title;pageEl.append(o)}if(selected&&state.pages.some(p=>p.id===selected))pageEl.value=selected}render()}
 pageEl.onchange=()=>render();
+if(selected==='search'){
+ const query=document.getElementById('query');
+ const panel=query.closest('details');
+ panel.open=true;
+ for(const child of panel.parentElement.children){if(child!==panel)child.hidden=true}
+ panel.querySelector('summary').textContent='远程搜索';
+ for(const id of ['toggle','stop'])document.getElementById(id).hidden=true;
+ panel.querySelector('.row').append(status);
+ query.addEventListener('keydown',event=>{if(event.key==='Enter')document.getElementById('search').click()});
+}
+
 document.getElementById('copy').onclick=async()=>{const v=document.getElementById('editValue')?.value||field()?.value||'';if(v){try{await navigator.clipboard.writeText(v)}catch{document.getElementById('editValue')?.select();document.execCommand('copy')}status.textContent='已复制'}};
 document.getElementById('test').onclick=async()=>{const v=document.getElementById('editValue')?.value||field()?.value||'';try{const r=await call('/api/config',{command:'test_tmdb',testKey:v});status.textContent=r.message}catch(e){status.textContent=e.message}};
 document.getElementById('save').onclick=async()=>{const input=document.getElementById('editValue');if(!input||!input.value.trim()){status.textContent='输入为空，未覆盖现有配置';return}try{const r=await call('/api/config',{fields:{[current.id]:input.value.trim()}});dialog.close();await refresh(true);status.textContent=r.message}catch(e){status.textContent=e.message}};

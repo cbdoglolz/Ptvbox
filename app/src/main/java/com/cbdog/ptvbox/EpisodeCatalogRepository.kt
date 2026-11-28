@@ -22,7 +22,8 @@ internal object DoubanEpisodeFallback055 {
 class EpisodeCatalogRepository(private val sites:Sites,private val db:Library){
     private val cache=mutableMapOf<String,List<CatalogGroup>>()
     fun observe(work:Work,refresh:Boolean=false,internationalOnly:Boolean=false):Flow<CatalogState> = channelFlow {
-        val enabled=sites.ordered(work).filter{sites.enabled(it)&&it.searchable&&!LiveParser050.isPortal(it)&&sites.supports(it)&&(!internationalOnly||it.type==8)};val gate=Semaphore(sites.parallel.coerceAtMost(8))
+        if(work.releaseStatus=="NOT_YET_RELEASED"){send(CatalogState(work.key));return@channelFlow}
+        val enabled=sites.ordered(work).filter{sites.enabled(it)&&it.searchable&&!LiveParser050.isPortal(it)&&sites.supports(it)&&(!internationalOnly||it.type in listOf(8,10))};val gate=Semaphore(sites.parallel.coerceAtMost(8))
         val previous=(if(refresh)db.loadCatalog(work,enabled)else cache[work.catalogKey()]?:db.loadCatalog(work,enabled)).filter{sites.enabled(it.site)}
         var groups=previous;var checked=0;var failed=0
         send(CatalogState(work.key,groups,0,enabled.size,true))
@@ -65,7 +66,7 @@ class DetailViewModel(private val metadata:Metadata,private val catalogs:Episode
         if(metadata.preloadCatalog)catalogTask=viewModelScope.launch{catalogs.observe(w).collect{if(token==request)mutableCatalog.value=it}}else mutableCatalog.value=CatalogState(w.key)
         task=viewModelScope.launch{
             mutableBusy.value=true
-            try{val fresh=withContext(Dispatchers.IO){metadata.details(w)};if(token==request){mutableWork.value=seasonal(fresh);for(p in listOf("douban","tmdb")){if(p!=fresh.provider){val extra=withContext(Dispatchers.IO){runCatching{metadata.ratingWork(fresh,p)}.getOrNull()};if(token==request&&extra!=null)mutableWork.value=mutableWork.value?.enriched(extra)?.let(::seasonal)}};if(fresh.kind!=w.kind||fresh.episodeCount!=w.episodeCount||(fresh.aliases-w.aliases.toSet()).isNotEmpty()||fresh.original!=w.original){if(metadata.preloadCatalog||mutableCatalog.value.total>0)refresh();loadSeries(fresh,manualSeriesId)}}}catch(e:CancellationException){throw e}catch(e:Exception){/* Existing metadata stays visible. */}
+            try{val fresh=withContext(Dispatchers.IO){metadata.details(w)};if(token==request){mutableWork.value=seasonal(fresh);for(p in listOf("douban","tmdb")){if(p!=fresh.provider){val extra=withContext(Dispatchers.IO){runCatching{metadata.ratingWork(fresh,p)}.getOrNull()};if(token==request&&extra!=null)mutableWork.value=mutableWork.value?.enriched(extra)?.let(::seasonal)}};if(fresh.kind!=w.kind||fresh.releaseStatus!=w.releaseStatus||fresh.episodeCount!=w.episodeCount||(fresh.aliases-w.aliases.toSet()).isNotEmpty()||fresh.original!=w.original){if(metadata.preloadCatalog||mutableCatalog.value.total>0)refresh();loadSeries(fresh,manualSeriesId)}}}catch(e:CancellationException){throw e}catch(e:Exception){/* Existing metadata stays visible. */}
             try{val rows=withContext(Dispatchers.IO){metadata.moreRelated(mutableWork.value?:w,1)};if(token==request)mutableRelated.value=rows}catch(e:CancellationException){throw e}catch(e:Exception){/* Retain existing recommendations on a failed refresh. */}
             val current=mutableWork.value?:w
             runCatching{withContext(Dispatchers.IO){metadata.collection(current)}}.onSuccess{if(token==request)mutableCollection.value=it}
@@ -88,7 +89,7 @@ class DetailViewModel(private val metadata:Metadata,private val catalogs:Episode
             val tmdbResult=withContext(Dispatchers.IO){metadata.episodeSeries(w,w.season,id){outline->if(token==request){val old=mutableSeries.value?.takeIf{it.id==outline.id}?.episodes.orEmpty().associateBy{it.number};mutableSeries.value=outline.copy(episodes=outline.episodes.map{old[it.number]?:it})}}}
             val fallback=if(tmdbResult==null&&id==null)doubanSeries(w)else null
             val result=tmdbResult?:fallback
-            if(token==request){if(result!=null){mutableSeries.value=result;withContext(Dispatchers.IO){runCatching{metadata.episodeCache055(w).writeText(EpisodeRail055.json(result).toString())}}};mutableWork.value=mutableWork.value?.let(::seasonal);mutableSeriesStatus.value=when{result==null->"豆瓣与TMDB均未返回可用集数；仍可从普通来源目录选择";tmdbResult!=null->"TMDB · 第${w.season}季 · ${result.episodes.size}集 · 点击卡片播放";else->"豆瓣目录 · 第${w.season}季 · ${result.episodes.size}集 · 无分集剧照，使用集数占位"}}
+            if(token==request){if(result!=null){mutableSeries.value=result;withContext(Dispatchers.IO){runCatching{metadata.episodeCache055(w).writeText(EpisodeRail055.json(result).toString())}}};mutableWork.value=mutableWork.value?.let(::seasonal);mutableSeriesStatus.value=when{result==null&&w.isUpcoming()->"尚未开播 · 正片集数未公布，不使用其他季目录";result==null->"豆瓣与TMDB均未返回可用集数；仍可从普通来源目录选择";tmdbResult!=null->"TMDB · 第${w.season}季 · ${result.episodes.size}集 · 点击卡片播放";else->"豆瓣目录 · 第${w.season}季 · ${result.episodes.size}集 · 无分集剧照，使用集数占位"}}
         }catch(e:CancellationException){throw e}catch(_:Exception){if(token==request)mutableSeriesStatus.value="季集资料暂不可用，保留已有目录，可刷新重试"}finally{if(token==request)mutableSeriesLoading.value=false}
     }}
     fun clearSeries(){seriesTask?.cancel();manualSeriesId=null;mutableSeries.value=null;mutableSeriesStatus.value="已清除TMDB关联，可随时手动匹配"}

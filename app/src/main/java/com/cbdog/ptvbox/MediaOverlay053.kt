@@ -51,9 +51,10 @@ private fun buildDanmakuPlan102(list:List<Danmaku053>,paint:Paint,screenW:Float,
  }
  return DanmakuPlan102(lanes,widths,speed,maxLife)
 }
-@Composable internal fun MediaOverlay053(m:PtvModel){val a=m.addons;val s=m.config;m.preferencesRevision
+@Composable internal fun MediaOverlay053(m:PtvModel,showDanmaku:Boolean=true){val a=m.addons;val s=m.config;m.preferencesRevision
+ val dmList=if(showDanmaku)a.danmaku else emptyList()
  var smoothPosMs by remember{mutableLongStateOf(m.player.currentPosition.coerceAtLeast(0))}
- val hasOverlay=(a.externalSubtitleEnabled&&a.cues.isNotEmpty())||(a.danmaku.isNotEmpty()&&s.flag("danmaku_enabled",true))
+ val hasOverlay=(a.externalSubtitleEnabled&&a.cues.isNotEmpty())||(dmList.isNotEmpty()&&s.flag("danmaku_enabled",true))
  val running=hasOverlay&&m.playing
  LaunchedEffect(m.current?.key,m.currentEpisode,m.position){
   val p=m.player.currentPosition.coerceAtLeast(0)
@@ -90,27 +91,27 @@ private fun buildDanmakuPlan102(list:List<Danmaku053>,paint:Paint,screenW:Float,
  val config=androidx.compose.ui.platform.LocalConfiguration.current
  val screenWpx=with(density){config.screenWidthDp.dp.toPx().coerceAtLeast(640f)}
  val screenHpx=with(density){config.screenHeightDp.dp.toPx().coerceAtLeast(360f)}
- val plan=remember(a.danmaku,dmSizeSp,dmAreaPct,dmDuration,dmTravel,screenWpx,screenHpx){
+ val plan=remember(dmList,dmSizeSp,dmAreaPct,dmDuration,dmTravel,screenWpx,screenHpx){
   dmPaint.typeface=Typeface.DEFAULT_BOLD
   dmPaint.textSize=with(density){dmSizeSp.sp.toPx()}
   val area=DanmakuLayout056.area(screenHpx,dmAreaPct)
   val lanesCount=DanmakuLayout056.lanes(area,dmPaint.textSize)
-  buildDanmakuPlan102(a.danmaku,dmPaint,screenWpx,lanesCount,dmDuration,with(density){40.dp.toPx()},dmTravel)
+  buildDanmakuPlan102(dmList,dmPaint,screenWpx,lanesCount,dmDuration,with(density){40.dp.toPx()},dmTravel)
  }
  Canvas(Modifier.fillMaxSize()){
   val t=smoothPosMs;val native=drawContext.canvas.nativeCanvas
-  if(a.danmaku.isNotEmpty()&&s.flag("danmaku_enabled",true)){
+  if(dmList.isNotEmpty()&&s.flag("danmaku_enabled",true)){
    dmPaint.typeface=Typeface.DEFAULT_BOLD;dmPaint.textSize=dmSizeSp.sp.toPx();dmPaint.setShadowLayer(2.dp.toPx(),0f,0f,android.graphics.Color.BLACK)
    dmPaint.color=(dmAlpha*255/100 shl 24) or (dmColor and 0xffffff)
    val area=DanmakuLayout056.area(size.height,dmAreaPct);val lanesCount=DanmakuLayout056.lanes(area,dmPaint.textSize)
    val now=t-dmDelay
-   val startIdx=upper053(a.danmaku,now-plan.maxLifetimeMs){it.time}.coerceAtLeast(0)
-   val end=upper053(a.danmaku,now){it.time}
+   val startIdx=upper053(dmList,now-plan.maxLifetimeMs){it.time}.coerceAtLeast(0)
+   val end=upper053(dmList,now){it.time}
    val maxDraw=dmDensity*3;var drawn=0
    val minX=if(dmTravel>=100)Float.NEGATIVE_INFINITY else size.width*(1f-dmTravel/100f)
    for(i in startIdx until end){
     val lane=plan.lanes[i];if(lane<0)continue
-    val d=a.danmaku[i];val elapsed=(now-d.time)/1000f;if(elapsed<0f)continue
+    val d=dmList[i];val elapsed=(now-d.time)/1000f;if(elapsed<0f)continue
     val w=plan.widths[i]
     if(lane>=lanesCount){
      if(elapsed>4f)continue

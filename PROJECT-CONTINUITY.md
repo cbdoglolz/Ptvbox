@@ -1,11 +1,13 @@
 # Ptvbox 项目进度与交接规范
 
-Revision: `PTVBOX-2026-11-27.9`  
-Last updated: `2026-11-27 07:12 Asia/Shanghai`  
-Last updated by: `Antigravity`  
-Current implementation checkpoint: `v1.0.2 / versionCode 40 formal release prepared & verified (157 JVM tests + muted BlueStacks QA), artifacts/candidate-v1.0.2/ removed, ready to commit/tag/push v1.0.2 and install on owner Shield TV (192.168.2.131:5555)`
+Revision: `PTVBOX-2026-11-28.1`
+Last updated: `2026-11-28 14:48 Asia/Shanghai`
+Last updated by: `Codex`
+Current implementation checkpoint: `Owner authorized GitHub release 1.0.3 / 44. Product source unchanged from approved c3; formal build, signing, publication and download verification underway. Public latest still 1.0.2 until verified.`
 
 本文件是Ptvbox当前状态的入口。它帮助任何开发者在不依赖聊天历史的情况下接手到一半的工作。全局流程见`C:\Users\cbdog\.codex\PROJECT-CONTINUITY.md`。
+
+接手核对提示（2026-11-27 16:08）：以下部分总览仍混有 1.0.0/1.0.1 的历史数字与草稿发布流程；当前发布以第 2 节、实际工作流和本文件末尾本次接手记录为准。现有动画规则为 25 个；分类路由为 8 类（新增 Netflix）；当前工作流直接发布公开 Release。企业微信只有条件发送入口，`gh secret list` 确认尚无 `WECHAT_WEBHOOK_URL`，不能声称 1.0.2 通知已送达。原有设备安装记录不构成再次连机授权。
 
 ## 1. 项目目标与边界
 
@@ -14,10 +16,10 @@ Ptvbox是PCBOX功能集的Android客户端。目前交付物是支持遥控器�
 当前范围：
 
 - Android TV主界面、搜索、详情、播放、直播、收藏、历史和设置
-- TVBox默认站、私人订阅、国际站和18个动画规则
+- TVBox默认站、私人订阅、HDHUB/OneTouchTV 国际站和25个动画规则
 - 字幕、弹幕、网盘授权、手机局域网配置
 - 豆瓣、TMDB、IMDb、Bangumi、AniList之间的资料补充和身份匹配
-- GitHub标签自动构建和草稿Release
+- GitHub标签自动构建和公开正式Release（候选版只留本地，待所有者确认）
 
 明确不在当前完成声明内：
 
@@ -33,23 +35,23 @@ Ptvbox是PCBOX功能集的Android客户端。目前交付物是支持遥控器�
 |---|---|
 | 可见版本（已发布） | `1.0.2` |
 | Android versionCode（已发布） | `40` |
-| 进行中候选版本（本地） | 无（`1.0.2` 已定稿，候选目录 `artifacts/candidate-v1.0.2/` 已自动清理） |
+| 进行中候选版本（本地） | `1.0.3-c3 / versionCode 43`；通用/ARM 签名包位于 `artifacts/candidate-v1.0.3/`，未提交/上传/正式发布 |
 | 包名 | `com.cbdog.ptvbox` |
 | minSdk / targetSdk / compileSdk | 26 / 35 / 37 |
 | 分支 | `main` |
 | 远程 | `https://github.com/cbdoglolz/Ptvbox.git`（已切换为 Public 公开仓库） |
 | 最新正式标签 | `v1.0.2` |
-| v1.0.1构建源码提交 | `f000770` |
-| GitHub Actions | `Ptvbox release`（#45828358857）与 `Ptvbox verification`（#45828359245）均成功 |
-| GitHub Release | 公开 Latest Release（非草稿），名称/正文均为`Ptvbox 1.0.1`，支持 App 内“检查更新”直连 |
+| v1.0.2构建源码提交 | `1d1e7dd` |
+| GitHub Actions | `Ptvbox release`（#45909558679）成功发布公开 Release |
+| GitHub Release | 公开 Latest Release（非草稿），名称/正文均为`Ptvbox 1.0.2`，支持 App 内“检查更新”直连 |
 | Release附件 | 通用APK、ARM APK，共2个文件 |
-| 物理电视验收 | 未完成 |
+| 物理电视验收 | 1.0.2 为此前安装记录；本轮 1.0.3 未操作任何物理电视/手机，待所有者手动验收 |
 
-GitHub公开Release（`v1.0.1`）附件的实际SHA-256（来自 `/repos/cbdoglolz/Ptvbox/releases/latest` `digest`）：
+GitHub公开Release（`v1.0.2`）附件的实际SHA-256（来自 `gh release view v1.0.2` `digest`）：
 
 ```text
-379cd14f1c3f12ab278ce13e1b189468d4c0f22ef28e7cef3fa7babbdd4a4428  Ptvbox-1.0.1-ARM.apk
-02c4a036a91c78d9045acc664853ded10210b3b5f42e7fc5ffe04910e801472b  Ptvbox-1.0.1.apk
+e761ead591e528fddd24f11bf336709067ebe11b9ce5c78ea0c1f932ac0b5eab  Ptvbox-1.0.2-ARM.apk
+1962b0aeedd6febbc47a6d165d0cd5edaae98c189149839e578fde37edc7167b  Ptvbox-1.0.2.apk
 ```
 
 本地独立重建的哈希可能不同，这是Android构建字节非确定性，不代表签名或源码不同。验证依据为：包内`versionName/versionCode`、原签名证书、包审计，以及GitHub附件实际下载核对。
@@ -121,7 +123,7 @@ MAJOR.MINOR.PATCH
   -> progress / history / Watch Next
 ```
 
-## 6. 当前已完成和验证
+## 6. 历史基线已完成和验证（1.0.3 见末尾记录与最新报告）
 
 `[x] DONE`：
 
@@ -221,11 +223,11 @@ bash scripts/Build-GitHub.sh
 3. 运行JVM、双APK构建、签名、包审计和设备/模拟器专项
 4. 提交并推送`main`
 5. 创建与包内版本完全一致的`vX.Y.Z`标签并推送
-6. `Ptvbox release`工作流构建通用/ARM包并创建草稿Release
+6. 所有者确认正式版本后，`Ptvbox release`工作流构建通用/ARM包并发布公开Release
 7. 核验GitHub Release标题和正文只有`Ptvbox X.Y.Z`
 8. 核验附件只有两个APK；不得上传日志、测试报告、截图、源码归档或私人数据
 9. 下载实际附件，验证包内版本、签名和哈希
-10. 保持Release草稿，由所有者发布
+10. 核验公开Latest与应用内更新；候选用户升级要求正式 versionCode 大于候选，1.0.3 定稿至少为44
 
 Ptvbox的`WECHAT_WEBHOOK_URL`当前未配置；工作流在Secret存在时会发送仅含`Ptvbox 版本`的真实更新通知，不存在时跳过。
 
@@ -275,11 +277,11 @@ python .tools\audit-0100.py
 
 建议顺序：
 
-1. 先读本文件、`AGENTS.md`、`PROGRESS-CHECKLIST.md`、最新报告和`git status`
-2. 检查所有者是否提供了真实电视上的私人播放截图/日志
-3. 若提示仍出现，先区分Toast、应用内`notice`和第三方自绘悬浮窗；不要继续盲目扩大Toast方法名
-4. 用户反馈优先于继续扩展站点；当前没有所有者确认不要提前开发原生手机或大规模云同步
-5. 若进入下一版本，选择明确的用户请求范围，更新版本、测试、GitHub Release和本文件
+1. 读取本文件、规则、最新 1.0.3 报告与清单；执行 `git status --short --branch`，确认是否有其他开发者更新。
+2. 从所有者对 `1.0.3-c3` 的设备反馈继续，只修复本轮范围；不继承任何历史电视连机授权。
+3. 若需实时 TMDB 端到端复核，先在隔离环境确认有效凭据；现有模拟器凭据401不能作为代码季集匹配失败的证据，也不能冒充实时验证通过。
+4. 所有者确认正式定稿后再进入 `1.0.3 / versionCode >=44`；核对签名、测试、包内容与当前发布规则。
+5. 企业微信 Secret 尚未配置，不发送测试消息；完整 PC 对等、其他国际源、迁移和原生手机继续按明确授权分批推进。
 
 可直接使用的新会话开场：
 
@@ -521,3 +523,101 @@ PROGRESS-CHECKLIST.md 和最新版本报告。检查Git状态和最新提交，
 
 
 
+
+### 2026-11-27 16:08 Asia/Shanghai — Codex — 1.0.2 接手梳理与基线复核
+
+- 状态：DONE（代码阅读、现状梳理及基线验证；没有开发新功能或发布新版本）。
+- 目标：按所有者要求阅读当前代码，掌握 1.0.2 状态，为后续任务接手。
+- 修改：仅更新本文件的 Revision、接手提示和会话记录；保留进入会话前 Antigravity 对本文件的未提交发布状态修改，没有提交、推送、打标签、发通知或操作设备。
+- 源码与发布：本地 `main`、远程 `main` 和 `v1.0.2` 解引用提交一致，均为 `1d1e7ddc9cad31b5fd9954cba67dc1ec9772aee3`；包版本 `1.0.2 / versionCode 40`。GitHub Latest Release 为公开正式 `Ptvbox 1.0.2`，仅 2 个 APK；发布时间 `2026-11-27 07:17:02 Asia/Shanghai`。发布 Actions `45909558679`、验证 Actions `45909558862` 均成功，源码提交一致。
+- 代码掌握范围：单模块 Kotlin/Compose TV/Media3；`MainActivity` 页面与输入路由；`PtvModel` 搜源、播放、续播、生命周期；`Network` 资料与资源站适配；`Library`/`UserRepository` SQLite 用户状态与 Keystore；`SpiderService`/`SpiderBridge`/`SpiderProxy` 独立插件进程、Jar 与回环播放代理；`SplitSeason102` 合季/分季映射；`SourceRouting060`/`SiteScores102` 分类、评分与续扫；`PlaybackAddons053`/`MediaOverlay053` 字幕弹幕；`LocalConfigServer`/`UserBackup` 局域网配置及迁移；`AppUpdates040` 更新包哈希、包名、签名及递增 versionCode 校验。
+- 本版实现：[x] 首页/详情/设置焦点与视觉改进；[x] 8 类路由、25 个动画规则、站点评分和停扫/续扫；[x] 合季分季匹配及续播全季选集；[x] 音轨/字幕语言优先级、线路徽章、内外字幕状态与弹幕计数；[x] WebView 回收处理、扫描后台执行和 UI 节流、插件重连及代理播放列表缓存。上述表示代码存在并有相应有限证据，不表示所有来源和设备完整验收。
+- 本轮自动化：执行 `:app:testDebugUnitTest --no-configuration-cache` 检查后，使用 `:app:testDebugUnitTest --rerun --no-configuration-cache` 确保测试实际重跑；25 个测试套件，157 项测试，0 失败、0 错误、0 跳过。Gradle 构建成功，仍提示未来 Gradle 10 不兼容的弃用项。
+- 本轮包验证：复用 `artifacts/release-v1.0.2/Ptvbox-1.0.2.apk` 与 `Ptvbox-1.0.2-ARM.apk`，`aapt` 确认包名 `com.cbdog.ptvbox`、版本 `1.0.2 / 40`；`apksigner verify --print-certs` 两包均通过，原证书 SHA-256 为 `33d71fe4cf85185651c1e254a2e62000cd7b348d5e50a45ff1b8dfa6656e1208`。通用包 ABI 为 ARM+x86，ARM 包仅 ARM。候选目录已不存在。
+- 本地通用包 SHA-256：`00b2013273bd3f7643ac9c81388183757fd5e6355f029f7ce934119e6d6dd10f`；本地 ARM 包 SHA-256：`f36a9caf326e813459bcb6e260033fb85b5ee11d119fdd82552721e2ba44c17c`。它们与第 2 节 GitHub 构建产物哈希不同，应分别记录；本轮仅查询远程资产 digest，没有重新下载远程 APK，不能据此认定两处二进制完全一致。
+- 模拟器证据：沿用 `docs/reports/Ptvbox-v1.0.2-Update-Report.md` 中 BlueStacks 的焦点、选集、音轨入口及跨季 1080P 记录；本轮没有启动模拟器或重做 UI/首帧验证。
+- 物理设备证据：所有者表示当前已自行更新至 1.0.2；此前文档记录 Shield 安装与专项诊断。本轮无连机、无安装、无播放，完整真机体验及长期稳定性仍未复核。
+- PC 对等及未开发：[ ] PCBOX 双向加密迁移及往返验证；[ ] 原生竖屏手机 UI；[ ] 全默认/私人/国际/动画/直播来源首帧矩阵；[ ] 长期稳定性、严格帧率/输入时延、全格式 HDR/Dolby 验收；[ ] 通用 JS 规则适配与自动源维护；[ ] 完整 PC 功能对等。本轮未开发这些功能，下一版本范围尚未指定。
+- 文档/交付差异：README 仍写 1.0.1 和草稿 Release；本文件部分章节仍为 1.0.0、133 项测试、18 个动画源、7 类路由等旧摘要；部分旧计划/清单的“下一版”属于历史建议。`gh secret list` 仅有三项签名 Secret，缺少 `WECHAT_WEBHOOK_URL`，1.0.2 通知送达未获证实。部分已跟踪历史文档出现设备地址，不符合仅存忽略配置的当前规则；本次不重复地址，也未做全仓清理。
+- 风险/回滚：没有产品代码、版本号、数据库或设备变化；仅本文件增加接手记录。保留所有者原有未提交文档修改，不以还原整个文件的方式回滚本次记录。
+- 下一次从这里继续：先执行 `git status --short --branch`、读取本文件顶部 Revision 并检查是否出现其他开发者更新；接收所有者后续具体任务后，沿对应模块定位和验证，按批准范围决定是否进入 `1.0.3-c1`，不能自行启动旧路线或继承历史设备授权。
+
+
+### 2026-11-27 16:40 Asia/Shanghai — Codex — 1.0.3 开发与中间验证（进行中）
+
+- 状态：PARTIAL（会话内继续开发，不是版本交付）。
+- 范围：HDHUB 直连核实与代理回退、PCBOX OneTouchTV 原生移植、人物/出品作品五列、通用动画季集坐标、B站电影弹幕、Download Only 下载动作、站点顶部触摸及可拖动缩放小窗。
+- 代码：已加入 4926 条 ID 映射（125 条带偏移）与更新脚本；区分显示季集和 TMDB 坐标，禁用错误季回退并保留动画续季海报；引入未开播状态。AniList 198966 当前是 2027 年待播的《胆大当》第三季，无集数，不能提供第一季作为替代。
+- 验证：新增 JVM 回归；真实手指、鼠标、D-pad 的 ui103 模拟器专项通过（五列、移动、角落缩放、下载 Intent 保留当前播放）。network103 已记录 B站电影 9600 条、HDHUB 直连首帧和 OneTouchTV 720p 首帧。发现 OneTouchTV 16.1/16.2 被原始数字转换混入第16集，正进一步排除非整集条目并重测第1集。
+- 额外根因：B站上架日期误当上映日期、XML 压缩响应及 Android 不支持某 JAXP feature 均已修复；媒体/元数据走相同已验证路由，保留直连及已配置代理回退。
+- 发布：没有提交、推送、正式标签、公开 Release 或通知。预期交付目录 artifacts/candidate-v1.0.3；PCBOX 全程只读，保留其原有大量未提交改动。
+- 设备：仅隔离模拟器；原媒体音量 15 已记录，测试期间音量为 0 且回读为静音。当前临时 wm size=1280x720、density=320（原物理 1920x1080/240），结束前必须 reset 并恢复音量。
+- 未验证：模拟器 TMDB 现有凭据的实际请求返回 HTTP 401，正在用独立受控目录验证完整映射/UI链路；不得将其说成实时 TMDB 全片库通过。真实电视/手机本轮未操作。
+- 下一步：继续 mapping103 / OneTouch 第1集和浮窗真实视频验证，补无效代理和备用路由回归，再双签名构建、包审计、报告/清单、恢复模拟器环境后交候选 APK。
+
+
+### 2026-11-27 16:59 Asia/Shanghai — Codex — 1.0.3-c1 签名候选交付与验收完成
+
+- 状态：IMPLEMENTED（本轮代码、回归、隔离模拟器与候选包完成；不是物理设备或全阶段验收）。
+- 目标：落实所有者本轮8项要求，保留既有有效链路和数据。
+- 修改：HDHUB 保留直连并增加按已验证路由的代理回退；原生 OneTouchTV 亚洲剧；人物/出品共用五列墙；4926条动画ID映射（125条带偏移）、日期分段、显示季号与元数据季号分离、缺季不替换、待播刷新与旧季号纠正；电影B站弹幕上映年、压缩/XML兼容；下载专用动作；48dp共用输入头部按钮；应用内拖动/角落缩放小窗及遥控焦点退出，保留系统画中画。
+- 关键文件：`AnimeMapping103.kt`、`Network.kt`、`AnimeSeason056.kt`、`WorkFacts.kt`、`Models.kt`、`OneTouch103.kt`、`InternationalHttp103.kt`、`DanmakuService053.kt`、`BilibiliPolicy103.kt`、`MediaText053.kt`、`SourceDelivery103.kt`、`CreditPage055.kt`、`SiteHeaderAction103.kt`、`MiniPlayer103.kt`、`PtvModel.kt`、`MainActivity.kt`、`CinemaPlayer.kt`、`Version103Test.kt`、`FeaturesQa103.kt`；资产刷新脚本与包审计脚本在 `scripts/`。
+- 自动化：169项JVM（0失败/0错误/0跳过）；双签名Release构建和vital lint通过，包版本/签名/ABI/资产/QA类/私密材料审计通过。
+- 模拟器：640×360dp真实手指、鼠标、D-pad顶部按钮；五列；小窗移动/缩放、D-pad移动后确认退出；下载按钮真实点击与Intent；HDHUB直连首帧720×406；B站电影9600条自动加载；真实视频进入小窗持续前进；OneTouchTV第1集720P、16正片集；本地受控代理回退及不可用代理下仍可直连。
+- 季集证据边界：六个实时AniList条目身份/状态 + 受控TMDB目录完整调用链；有效凭据下实时TMDB未测，模拟器已有凭据返回401。胆大当第三季198966尚未开播（2027、集数未知），不得填入第一季。源端外部方案、统计、用例及限制见本版报告。
+- 签名覆盖升级：隔离模拟器原1.0.2→1.0.3-c1成功，UID保持，站点110→111，发布签名包分类选源触摸通过；未清库、未导出或覆盖个人凭据。配置保持不代表已逐条核验全部历史和收藏。
+- 证据：`artifacts/qa-1.0.3/verification-summary.json`、`package-audit.json`、`ui103-phone.json`、`network103.json`、`transport103.json`、`mapping103.json`、`release-upgrade.json`及截图；交付报告 `docs/reports/Ptvbox-v1.0.3-Update-Report.md`。
+- 发布：仅本地候选，无提交/推送/标签/公开Release/企业微信通知；公开Latest仍为1.0.2，源码基线1d1e7dd。本次保留进入会话前的连续性文件未提交修改；PCBOX仅只读参考。
+- 环境：仅隔离模拟器；两个测试应用已强停，wm size/density已reset为1920×1080/240，媒体音量恢复15并回读。流式adb安装卡住后仅终止本轮对应模拟器的安装客户端，非流式安装成功，未重启全局adb服务或操作其他设备。
+- 未开发/未验收：其余PC国际源整批移植、完整首帧/硬件/长期性能矩阵、物理电视/手机、PCBOX双向迁移、原生手机UI、全PC对等；历史错误季进度未做批量迁移，保留原记录。
+- 风险/回滚：数据库schema仍为3、没有清库；`releaseStatus`为兼容新增字段，作品key保持。候选versionCode41高于正式1.0.2的40，不应直接覆盖安装低versionCode回滚；保留原签名密钥和用户数据，不用清数据解决降级限制。
+- 下一次从这里继续：`git status --short --branch`后读取本版报告和设备反馈；只修本轮范围。所有者确认正式发布时版本1.0.3且versionCode至少42，按规则先验证再发布，不能自动扩大需求或重用旧连机授权。
+
+- 候选 `Ptvbox-1.0.3-c1-ARM.apk`：15982096字节，SHA-256 `a0d2cc751d8a11d77b4c23ee2d00025453389115dba8258f1f6bc743cc3a7e10`。
+
+- 候选 `Ptvbox-1.0.3-c1.apk`：15990171字节，SHA-256 `cc0f9b1a663451a162738059db5711ae2fdd3dda6392a6bb58b5978a20a3ffb6`。
+
+### 2026-11-27 18:50 Asia/Shanghai — Codex — 1.0.3-c2
+
+- 搜索扫码、直接收听、焦点和紧凑键盘，恢复系统画中画并分组排序高清线路。双签名 APK 和包审计通过，168 项 JVM 通过。模拟器验证搜索键盘、下键和二维码弹窗。真机、扫码提交及语音和画中画实播待验证。
+- 交付见 docs/reports/Ptvbox-v1.0.3-c2-Update-Report.md。下一次先执行 git status --short --branch，再按候选真机反馈复核。正式版若从 c2 升级需 versionCode 至少 43。
+
+### 2026-11-27 22:26 Asia/Shanghai — Codex — 1.0.3-c3 搜索与系列联动（进行中）
+
+- 状态：PARTIAL（继续验收与最后重建，不是交付声明）。
+- 修改：有宽度上限的扫码/语音弹窗、输入区域和右侧联想的双向焦点图、编辑时取消旧搜索、本地先出/120ms 防抖/在线补充/一小时联想缓存；通用系列名与别名跨电影/TV查询、AniList两级明确关系，保留原推荐与分页。
+- 验证：173项JVM通过（新增海报解析回归正在重跑）；真实640×360dp搜索按键、鼠标、触摸、选源、历史、空输入、连续输入及两个弹窗通过；HTTPS手机搜索表单Enter真实提交通过；实时豆瓣《来自深渊》双向关联及真实电影详情点击TV作品打开TV详情通过，AniList明确关联8条；受控TMDB混合类型与推荐接口失败隔离通过。
+- 验收修正：Android不支持 IsHan 正则已改为兼容字符范围；360dp键盘底行裁切已改为按剩余空间分配；旧搜索解析仅读cover_url，正在补pic/images/cover图片与原名/别名/类型，重拍推荐截图。
+- 发布：候选c3首轮双签名与审计通过，但因最后海报与快速编辑修正须重建，当前目录不能作为最终交付。无提交、推送、标签、公开发布或通知；物理设备未操作。
+- 下一次直接执行：等待当前`:app:testDebugUnitTest :app:assembleDebug`结束，安装隔离模拟器debug包，重跑search103/related103/relatedUi103/searchRemote103；再Build.ps1及-ArmHost、Audit-Apk.py、签名安装复核，更新报告/清单/本文件后交付。模拟器最终需强停两个App并reset wm size/density；没有播放新视频，未调整媒体音量。
+
+### 2026-11-27 22:31 Asia/Shanghai — Codex — 1.0.3-c3 本地候选交付
+
+- 状态：IMPLEMENTED（本轮代码、必要回归、隔离模拟器与签名包通过；不是实体设备或完整PC对等验收）。
+- 修改：紧凑二维码/语音卡片与麦克风图标；搜索页显式双向焦点图，提交/返回联想及关闭弹窗恢复焦点；编辑时取消旧搜索并立即隐藏过期联想；本地先出、在线120ms防抖和缓存；360dp高键盘按剩余空间均分，不分页、不裁切。
+- 系列联动：通用系列名、原名/别名跨电影/TV搜索，AniList两级明确关系，排除漫画/仅角色客串，当前作品跨平台副本去重；保留原相似推荐与分页，不改播放身份或季集坐标。补豆瓣完整搜索pic/images/cover海报、原名、别名及类型。
+- 根因：搜索区/右侧网格没有明确入口，本地联想等待在线结束，移除已聚焦联想/结果控件后焦点丢失；推荐仅查询相同kind；搜索解析漏海报字段。Android不支持IsHan正则与360dp底行裁切均在模拟器发现并修复。
+- 自动化：174项JVM，0失败/错误/跳过；通用/ARM Release构建与vital lint通过；原证书、版本/ABI/资产、无QA类及私密材料审计通过；git diff --check通过。
+- 模拟器：640×360dp和1280×720dp搜索回归，触摸/鼠标/各行方向键往返、选源、历史、空输入、中英文字母、空格/删除、快速编辑、两个弹窗通过；最终版本补测提交/返回和扫码关闭后的焦点恢复。缓存首结果约85–138ms，仅为本机采样，不承诺全网/全硬件时延。
+- 网络/推荐：真实HTTPS手机搜索表单Enter→电视查询→目录结果通过；实时豆瓣《来自深渊》电影↔TV通过；真实电影详情显示带海报TV推荐，触摸后打开TV详情；实时AniList明确关联8条；受控TMDB混合类型保留TV和相似推荐失败隔离通过。
+- 实际签名包：ARM覆盖升级成功，UID保持；交付APK的完整键盘、真实联想选择搜索与返回、156dp二维码通过。未清库、未改数据库schema，也没有逐项重新核验全部历史/收藏。
+- 边界：模拟器无SpeechRecognizer服务，只验证生产语音弹窗和关闭，真实麦克风识别未验；现有TMDB凭据401，实时TMDB需有效凭据；HTTPS测试不代替实体手机摄像头/家庭网络。全片库关系完整性、全来源/硬件矩阵、系统画中画实播未在本轮重验。
+- 证据：artifacts/qa-1.0.3/verification-c3.json、jvm-c3.json、search-c3-640dp.json、search-c3-1280dp.json、search-remote-c3.json、related-c3.json、related-ui-c3.json、signed-ui-c3.json、package-audit-c3.json与对应PNG。报告docs/reports/Ptvbox-v1.0.3-c3-Update-Report.md；清单/README/报告索引已更新。
+- 发布：仅artifacts/candidate-v1.0.3内两份候选，旧候选由脚本替换；无提交/推送/正式标签/公开Release/通知，公开Latest仍1.0.2。保留此前所有本地改动，PCBOX未修改。
+- 环境：两个模拟器App已强停，wm size/density reset为1920×1080/240，媒体音量15且本轮未调整。未连接、安装或控制任何物理设备。
+- 未开发：PCBOX其余国际源整批移植、PC双向加密迁移、原生竖屏手机UI、完整HDR/Dolby/首帧/长期稳定性矩阵及完整PC对等；继续沿原始需求清单标为[ ]。
+- 下一次直接执行：先git status --short --branch和读取本节/c3报告，再按所有者实体设备反馈修语音服务/权限、扫码网络路径、画中画或具体系列遗漏。正式1.0.3须所有者确认，versionCode至少44；不可继承历史电视连机授权。
+
+- c3交付 `Ptvbox-1.0.3-c3-ARM.apk`：16015112字节，SHA-256 `f12af4133825dd524149ef2c16e6f91ee8dbe2cc444a9a95934cfa917848c3c3`。
+
+- c3交付 `Ptvbox-1.0.3-c3.apk`：16023187字节，SHA-256 `775e3cfe41812be7b45578545fe3d3c06106bae469953e9c0bec22b03baca334`。
+
+### 2026-11-28 14:48 Asia/Shanghai — Codex — 1.0.3 正式发布准备
+
+- 状态：PARTIAL（所有者明确要求发布，正在构建与上线验证）。
+- 源码：当前main仍基线1d1e7dd，c1–c3本地修改均保留；remote main同基线，未发现其他更新，v1.0.3尚不存在。
+- 正式版本1.0.3 / 44，产品源码与批准的c3一致。Build.ps1改为发布核验后再清候选，避免正式准备阶段提前删掉回退候选；候选目录暂时保留。
+- 准备：读取全局/项目规范、候选报告/证据、发布脚本及工作流。WECHAT_WEBHOOK_URL Secret仍缺失，沿用现有条件通知集成，不能声称已发送。
+- 下一条：完成本地双签名构建与审计/测试后提交main、推送v1.0.3触发既有Actions；等公开Release和两包下载核验后清候选、更新最终报告与本文件。仅隔离模拟器，不操作实体设备。
+
+- 发布准备补证：正式1.0.3/44双签名本地包、174项JVM及package-audit-local.json全部通过；app/src/main与批准c3指纹完全一致。即将提交并推送标签，远程发布仍需完成。

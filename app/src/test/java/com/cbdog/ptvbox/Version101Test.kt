@@ -192,7 +192,7 @@ class Version101Test {
         val live=source("src/main/java/com/cbdog/ptvbox/Live050.kt")
         assertTrue(app.contains("max-age=31536000"))
         assertTrue(net.contains("ratingStorageKey(work,\"tmdb\")"))
-        assertTrue(net.contains("val fallbackNum=regularSeasons.lastOrNull"))
+        assertFalse(net.contains("val fallbackNum=regularSeasons.lastOrNull")) // An unrelated season must never mask a failed request.
         assertTrue(live.contains("LiveLogoImage101"))
         assertTrue(live.contains("体育/直播源解析较慢，请稍候"))
     }

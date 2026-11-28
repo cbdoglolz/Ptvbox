@@ -50,7 +50,7 @@ import com.google.zxing.qrcode.QRCodeWriter
             }
         }else{
             val paired=m.remoteUrl+"&page="+if(section=="remote")"configuration"else section
-            val qr=remember(paired){val matrix=QRCodeWriter().encode(paired,BarcodeFormat.QR_CODE,340,340);Bitmap.createBitmap(340,340,Bitmap.Config.ARGB_8888).apply{for(y in 0 until 340)for(x in 0 until 340)setPixel(x,y,if(matrix[x,y])android.graphics.Color.BLACK else android.graphics.Color.WHITE)}.asImageBitmap()}
+            val qr=remember(paired){remoteQrBitmap(paired)}
             Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(18.dp),verticalAlignment=androidx.compose.ui.Alignment.Top){
                 Column(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(8.dp)){
                     Action("关闭二维码",m::stopRemoteConfig,Modifier.focusRequester(closeFocus))
@@ -79,4 +79,11 @@ import com.google.zxing.qrcode.QRCodeWriter
         PcChip(if(expanded)"收起手机配置 ▴"else"展开手机配置 ▾",expanded,{expanded=!expanded})
         if(expanded)RemoteConfiguration(m,section)
     }
+}
+
+internal fun remoteQrBitmap(url:String):androidx.compose.ui.graphics.ImageBitmap {
+    val size=340
+    val matrix=QRCodeWriter().encode(url,BarcodeFormat.QR_CODE,size,size)
+    val pixels=IntArray(size*size){index->if(matrix[index%size,index/size])android.graphics.Color.BLACK else android.graphics.Color.WHITE}
+    return Bitmap.createBitmap(pixels,size,size,Bitmap.Config.ARGB_8888).asImageBitmap()
 }
